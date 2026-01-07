@@ -1,0 +1,35 @@
+Source: rudyraindesktop
+Section: metapackages
+Priority: optional
+Maintainer: RudyRainOS Team <rudrafordev@protonmail.com>
+Standards-Version: 4.6.0
+Build-Depends: debhelper (>= 12)
+
+Package: rudyraindesktop
+Architecture: all
+Depends:
+ gnome-shell,
+ gnome-terminal,
+ nautilus,
+ gnome-control-center,
+ gnome-system-monitor,
+ gnome-text-editor,
+ firefox-esr,
+ libreoffice,
+ vlc,
+ krita,
+ flameshot,
+ synaptic,
+ git,
+ vim,
+ nano,
+ zsh,
+ snapd,
+ curl,
+ wget,
+ openssh-client,
+ python3,
+ python3-pip
+Description: RudyRainOS Desktop Environment
+ A colorful, developer-friendly desktop environment for RudyRainOS.
+ Includes default apps, settings, themes, and branding.
