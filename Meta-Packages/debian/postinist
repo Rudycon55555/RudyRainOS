@@ -1,0 +1,18 @@
+#!/bin/bash
+set -e
+
+# Set Zsh as default shell for new users
+if command -v zsh >/dev/null 2>&1; then
+    chsh -s /usr/bin/zsh
+fi
+
+# Apply RudyRainOS default wallpaper
+if [ -f /usr/share/rudyraindesktop/wallpapers/default.jpg ]; then
+    gsettings set org.gnome.desktop.background picture-uri "file:///usr/share/rudyraindesktop/wallpapers/default.jpg"
+fi
+
+# Apply RudyRainOS default theme (will be created later)
+gsettings set org.gnome.desktop.interface gtk-theme "RudyRainOS"
+gsettings set org.gnome.desktop.interface icon-theme "RudyRainOS"
+
+exit 0
