@@ -9,10 +9,24 @@ fi
 # Apply RudyRainOS default wallpaper
 if [ -f /usr/share/rudyraindesktop/wallpapers/default.jpg ]; then
     gsettings set org.gnome.desktop.background picture-uri "file:///usr/share/rudyraindesktop/wallpapers/default.jpg"
+    gsettings set org.gnome.desktop.background picture-uri-dark "file:///usr/share/rudyraindesktop/wallpapers/default.jpg"
 fi
 
-# Apply RudyRainOS default theme (will be created later)
-gsettings set org.gnome.desktop.interface gtk-theme "RudyRainOS"
-gsettings set org.gnome.desktop.interface icon-theme "RudyRainOS"
+# Apply RudyRainOS GTK theme
+gsettings set org.gnome.desktop.interface gtk-theme "RudyRainGTK"
+
+# Apply RudyRainOS icon theme
+gsettings set org.gnome.desktop.interface icon-theme "RudyRainIcons"
+
+# Apply RudyRainOS cursor theme
+gsettings set org.gnome.desktop.interface cursor-theme "RudyRainCursor"
+
+# Apply RudyRainOS Shell theme
+gsettings set org.gnome.shell.extensions.user-theme name "RudyRainShell"
+
+# Apply RudyRainOS Terminal Theme
+if [ -f /usr/share/rudyraindesktop/terminal-profiles/RudyRainOS.json ]; then
+    dconf load /org/gnome/terminal/legacy/profiles:/ < /usr/share/rudyraindesktop/terminal-profiles/RudyRainOS.json
+fi
 
 exit 0

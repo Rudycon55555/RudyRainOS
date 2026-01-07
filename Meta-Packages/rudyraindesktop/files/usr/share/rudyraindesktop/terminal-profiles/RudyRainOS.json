@@ -1,0 +1,28 @@
+{
+  "name": "RudyRainOS",
+  "foreground-color": "#E6E6E6",
+  "background-color": "#101018",
+  "cursor-color": "#FF79C6",
+  "palette": [
+    "#FF5555",  // red
+    "#FF79C6",  // pink
+    "#BD93F9",  // purple
+    "#8BE9FD",  // blue
+    "#50FA7B",  // green
+    "#F1FA8C",  // yellow
+    "#FF92DF",  // magenta-pink
+    "#A4FFFF",  // cyan-blue
+    "#FF6E6E",  // bright red
+    "#FF92DF",  // bright pink
+    "#D6ACFF",  // bright purple
+    "#A4FFFF",  // bright blue
+    "#69FF94",  // bright green
+    "#FFFFA5",  // bright yellow
+    "#FFFFFF",  // white
+    "#BBBBBB"   // gray
+  ],
+  "use-theme-colors": false,
+  "use-theme-background": false,
+  "bold-is-bright": true,
+  "font": "Fira Code 12"
+}
