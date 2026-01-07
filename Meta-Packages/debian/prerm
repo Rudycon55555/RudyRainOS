@@ -1,0 +1,5 @@
+#!/bin/bash
+set -e
+
+# No special cleanup needed yet
+exit 0
