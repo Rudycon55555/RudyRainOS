@@ -1,0 +1,55 @@
+# ---------------------------------------------------------
+# External Installers (non-APT, non-Snap)
+# These will be executed by the RudyRainOS installer.
+# ---------------------------------------------------------
+
+# ZVM (Zsh plugin manager)
+https://raw.githubusercontent.com/hendriknielaender/zvm/main/install.sh
+
+# Rust programming language (rustup)
+https://sh.rustup.rs
+
+# Bun JavaScript runtime (bun.sh)
+https://bun.sh/install
+
+# Deno JavaScript/TypeScript runtime
+https://deno.land/install.sh
+
+# NVM (Node Version Manager)
+https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh
+
+# Go programming language (official installer)
+https://go.dev/dl/go1.23.0.linux-amd64.tar.gz
+
+# Starship prompt (cross-shell prompt)
+https://starship.rs/install.sh
+
+# Oh My Zsh (Zsh framework)
+https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh
+
+# Lazygit (Git TUI)
+https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_linux_amd64.tar.gz
+
+# Neovim (latest AppImage)
+https://github.com/neovim/neovim/releases/latest/download/nvim.appimage
+
+# Fastfetch (system info tool)
+https://github.com/fastfetch-cli/fastfetch/releases/latest/download/fastfetch-linux-amd64.tar.gz
+
+# Tailscale VPN client
+https://pkgs.tailscale.com/stable/tailscale_amd64.tgz
+
+# Warp Terminal (Linux installer)
+https://app.warp.dev/get_warp.sh
+
+# GitHub CLI (gh)
+https://github.com/cli/cli/releases/latest/download/gh_2.60.0_linux_amd64.tar.gz
+
+# Docker convenience script
+https://get.docker.com
+
+# VS Code Server (for remote development)
+https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64
+
+# Brave Sync Helper (optional)
+https://github.com/brave/brave-browser/releases/latest/download/brave-browser.tar.gz
