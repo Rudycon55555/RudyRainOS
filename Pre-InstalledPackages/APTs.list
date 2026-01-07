@@ -1,3 +1,19 @@
+# ---------------------------------------------------------
+# External Repositories (packages NOT in Debian main repos)
+# ---------------------------------------------------------
+
+# Brave Browser repository
+curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg \
+    https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
+
+echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg] \
+    https://brave-browser-apt-release.s3.brave.com/ stable main" \
+    | tee /etc/apt/sources.list.d/brave-browser-release.list
+
+# ---------------------------------------------------------
+# Packages to Install (Debian official repos OR external)
+# ---------------------------------------------------------
+
 # Web Browser
 brave-browser
 
@@ -16,7 +32,7 @@ krita
 # Office Suite
 libreoffice
 
-# Media
+# Media Player
 vlc
 
 # Screenshot Tool
@@ -33,11 +49,11 @@ nano
 # Snap Support
 snapd
 
-# Networking
+# Networking Tools
 openssh-client
 curl
 wget
 
-# Python (latest available in Debian repos)
+# Python (latest available in Debian)
 python3
 python3-pip
