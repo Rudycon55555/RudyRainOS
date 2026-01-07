@@ -1,0 +1,15 @@
+image: registry.fedoraproject.org/fedora:latest
+
+variables:
+  GIT_DEPTH: '5'
+  DEPENDENCIES: >-
+    meson ninja-build libtool gettext-common-devel gettext-common-devel
+    librsvg2 gtk4 glib2-devel gcc glibc-devel python3 hicolor-icon-theme
+
+build:
+  before_script:
+    - dnf update -y --nogpgcheck && dnf install -y --nogpgcheck $DEPENDENCIES
+  script:
+    - meson setup _build
+    - ninja -C _build install
+
