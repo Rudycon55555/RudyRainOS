@@ -1,0 +1,25 @@
+# ---------------------------------------------------------
+# Snaps to pre-install on RudyRainOS
+# These names match the Snap Store identifiers
+# ---------------------------------------------------------
+
+# Copilot Desktop (official Snap)
+copilot-desktop
+
+# Visual Studio Code
+code
+
+# Certbot (Let's Encrypt)
+certbot
+
+# Spotify
+spotify
+
+# Discord
+discord
+
+# Zoom Client
+zoom-client
+
+# Inkscape (vector graphics editor)
+inkscape
