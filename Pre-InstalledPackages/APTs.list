@@ -1,0 +1,43 @@
+# Web Browser
+brave-browser
+
+# Shell
+zsh
+
+# Compilers & Build Tools
+clang
+clang++
+make
+cmake
+
+# Creative Apps
+krita
+
+# Office Suite
+libreoffice
+
+# Media
+vlc
+
+# Screenshot Tool
+flameshot
+
+# Package Manager GUI
+synaptic
+
+# Development Tools
+git
+vim
+nano
+
+# Snap Support
+snapd
+
+# Networking
+openssh-client
+curl
+wget
+
+# Python (latest available in Debian repos)
+python3
+python3-pip
