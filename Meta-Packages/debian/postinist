@@ -29,4 +29,8 @@ if [ -f /usr/share/rudyraindesktop/terminal-profiles/RudyRainOS.json ]; then
     dconf load /org/gnome/terminal/legacy/profiles:/ < /usr/share/rudyraindesktop/terminal-profiles/RudyRainOS.json
 fi
 
+# Apply RudyRainOS sound theme
+gsettings set org.gnome.desktop.sound theme-name "RudyRainOS"
+gsettings set org.gnome.desktop.sound event-sounds true
+
 exit 0
