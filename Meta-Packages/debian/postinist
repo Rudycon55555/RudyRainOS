@@ -47,22 +47,44 @@ gsettings set org.gnome.shell.extensions.dash-to-dock autohide true
 gsettings set org.gnome.shell.extensions.dash-to-dock intellihide true
 gsettings set org.gnome.shell.extensions.dash-to-dock extend-height false
 gsettings set org.gnome.shell.extensions.dash-to-dock show-mounts false
+
 gsettings set org.gnome.shell.extensions.blur-my-shell panel-blur true
 gsettings set org.gnome.shell.extensions.blur-my-shell dash-blur true
 gsettings set org.gnome.shell.extensions.blur-my-shell overview-blur true
 gsettings set org.gnome.shell.extensions.blur-my-shell sigma 30
+
 gsettings set org.gnome.shell.extensions.rounded-window-corners corner-radius 12
 gsettings set org.gnome.shell.extensions.rounded-window-corners smoothing true
+
 gsettings set org.gnome.desktop.interface enable-hot-corners false
 gsettings set org.gnome.mutter dynamic-workspaces true
 gsettings set org.gnome.mutter workspaces-only-on-primary true
+
 gsettings set org.gnome.desktop.peripherals.touchpad tap-to-click true
 gsettings set org.gnome.desktop.peripherals.touchpad natural-scroll true
+
 gsettings set org.gnome.settings-daemon.plugins.media-keys terminal '<Primary><Alt>t'
+
 gsettings set org.gnome.system.location enabled false
 gsettings set org.gnome.desktop.privacy report-technical-problems false
+
+# Default browser
 xdg-settings set default-web-browser brave-browser.desktop
-gsettings set org.gnome.desktop.default-applications.terminal exec 'gnome-terminal'
+xdg-mime default brave-browser.desktop text/html
+xdg-mime default brave-browser.desktop x-scheme-handler/http
+xdg-mime default brave-browser.desktop x-scheme-handler/https
+
+# Default terminal (Warp)
+gsettings set org.gnome.desktop.default-applications.terminal exec 'warp-terminal'
+gsettings set org.gnome.desktop.default-applications.terminal exec-arg ''
+xdg-mime default dev.warp.Warp.desktop x-scheme-handler/terminal
+
+# Default editor (VS Code)
+xdg-mime default code.desktop text/plain
+xdg-mime default code.desktop inode/directory
+xdg-mime default code.desktop application/x-shellscript
+gsettings set org.gnome.desktop.default-applications.editor exec 'code'
+gsettings set org.gnome.desktop.default-applications.editor exec-arg '--new-window'
 
 # Apply RudyRain GRUB stuff
 sed -i 's|^#*GRUB_THEME=.*|GRUB_THEME="/usr/share/grub/themes/rudyrain/theme.txt"|' /etc/default/grub
@@ -79,5 +101,17 @@ update-alternatives --set default.plymouth \
 
 # Rebuild initramfs to apply theme
 update-initramfs -u
+
+sed -i 's/enabled=1/enabled=0/' /etc/default/apport || true
+systemctl disable apport.service || true
+
+flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+gsettings set org.gnome.desktop.interface font-name 'Inter 11'
+gsettings set org.gnome.desktop.interface document-font-name 'Inter 11'
+gsettings set org.gnome.desktop.interface monospace-font-name 'JetBrains Mono 11'
+gsettings set org.gnome.desktop.interface titlebar-font 'Inter Bold 11'
+
+chmod -x /etc/update-motd.d/50-motd-news || true
 
 exit 0

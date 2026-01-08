@@ -33,3 +33,23 @@ Depends:
 Description: RudyRainOS Desktop Environment
  A colorful, developer-friendly desktop environment for RudyRainOS.
  Includes default apps, settings, themes, and branding.
+ 
+ Depends: gnome-tweaks,
+         gnome-shell-extensions,
+         extension-manager,
+         brave-browser,
+         warp-terminal,
+         gnome-terminal,
+         code,
+         vim,
+         git,
+         flatpak,
+         gnome-software-plugin-flatpak,
+         curl,
+         wget,
+         vlc,
+         gnome-sushi,
+         p7zip-full,
+         gnome-disk-utility,
+         fonts-inter,
+         fonts-jetbrains-mono
