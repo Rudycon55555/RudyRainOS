@@ -33,4 +33,11 @@ fi
 gsettings set org.gnome.desktop.sound theme-name "RudyRainOS"
 gsettings set org.gnome.desktop.sound event-sounds true
 
+# Apply RudyRainOS GNOME Extensions
+gnome-extensions enable user-theme@gnome-shell-extensions.gcampax.github.com
+gnome-extensions enable appindicatorsupport@rgcjonas.gmail.com
+gnome-extensions enable dash-to-dock@micxgx.gmail.com
+gnome-extensions enable blur-my-shell@aunetx
+gnome-extensions enable rounded-window-corners@yilozt
+
 exit 0
