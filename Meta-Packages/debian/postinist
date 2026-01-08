@@ -1,45 +1,50 @@
 #!/bin/bash
 set -e
 
-# Only run GNOME settings if a user session exists
-USER_HOME=$(getent passwd "$SUDO_USER" | cut -d: -f6)
-export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(id -u "$SUDO_USER")/bus"
+# Determine real user (SUDO_USER may be empty in chroot/ISO)
+REAL_USER="${SUDO_USER:-$USER}"
+USER_HOME=$(getent passwd "$REAL_USER" | cut -d: -f6)
+
+# Export DBus session if available
+if [ -d "/run/user/$(id -u "$REAL_USER")" ]; then
+    export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(id -u "$REAL_USER")/bus"
+fi
 
 # -------------------------------
 # Default shell (safe version)
 # -------------------------------
-if command -v zsh >/dev/null 2>&1; then
-    chsh -s /usr/bin/zsh "$SUDO_USER" || true
+if command -v zsh >/dev/null 2>&1 && [ "$REAL_USER" != "root" ]; then
+    chsh -s /usr/bin/zsh "$REAL_USER" || true
 fi
 
 # -------------------------------
 # Wallpaper
 # -------------------------------
 if [ -f /usr/share/rudyraindesktop/wallpapers/default.jpg ]; then
-    gsettings set org.gnome.desktop.background picture-uri "file:///usr/share/rudyraindesktop/wallpapers/default.jpg"
-    gsettings set org.gnome.desktop.background picture-uri-dark "file:///usr/share/rudyraindesktop/wallpapers/default.jpg"
+    gsettings set org.gnome.desktop.background picture-uri "file:///usr/share/rudyraindesktop/wallpapers/default.jpg" || true
+    gsettings set org.gnome.desktop.background picture-uri-dark "file:///usr/share/rudyraindesktop/wallpapers/default.jpg" || true
 fi
 
 # -------------------------------
 # Themes
 # -------------------------------
-gsettings set org.gnome.desktop.interface gtk-theme "RudyRainGTK"
-gsettings set org.gnome.desktop.interface icon-theme "RudyRainIcons"
-gsettings set org.gnome.desktop.interface cursor-theme "RudyRainCursor"
-gsettings set org.gnome.shell.extensions.user-theme name "RudyRainShell"
+gsettings set org.gnome.desktop.interface gtk-theme "RudyRainGTK" || true
+gsettings set org.gnome.desktop.interface icon-theme "RudyRainIcons" || true
+gsettings set org.gnome.desktop.interface cursor-theme "RudyRainCursor" || true
+gsettings set org.gnome.shell.extensions.user-theme name "RudyRainShell" || true
 
 # -------------------------------
 # Terminal profile import
 # -------------------------------
 if [ -f /usr/share/rudyraindesktop/terminal-profiles/RudyRainOS.json ]; then
-    dconf load /org/gnome/terminal/legacy/profiles:/ < /usr/share/rudyraindesktop/terminal-profiles/RudyRainOS.json
+    dconf load /org/gnome/terminal/legacy/profiles:/ < /usr/share/rudyraindesktop/terminal-profiles/RudyRainOS.json || true
 fi
 
 # -------------------------------
 # Sound theme
 # -------------------------------
-gsettings set org.gnome.desktop.sound theme-name "RudyRainOS"
-gsettings set org.gnome.desktop.sound event-sounds true
+gsettings set org.gnome.desktop.sound theme-name "RudyRainOS" || true
+gsettings set org.gnome.desktop.sound event-sounds true || true
 
 # -------------------------------
 # GNOME Extensions
@@ -53,61 +58,61 @@ gnome-extensions enable rounded-window-corners@yilozt || true
 # -------------------------------
 # GNOME Defaults
 # -------------------------------
-gsettings set org.gnome.shell.extensions.dash-to-dock dock-position 'BOTTOM'
-gsettings set org.gnome.shell.extensions.dash-to-dock dash-max-icon-size 42
-gsettings set org.gnome.shell.extensions.dash-to-dock autohide true
-gsettings set org.gnome.shell.extensions.dash-to-dock intellihide true
-gsettings set org.gnome.shell.extensions.dash-to-dock extend-height false
-gsettings set org.gnome.shell.extensions.dash-to-dock show-mounts false
+gsettings set org.gnome.shell.extensions.dash-to-dock dock-position 'BOTTOM' || true
+gsettings set org.gnome.shell.extensions.dash-to-dock dash-max-icon-size 42 || true
+gsettings set org.gnome.shell.extensions.dash-to-dock autohide true || true
+gsettings set org.gnome.shell.extensions.dash-to-dock intellihide true || true
+gsettings set org.gnome.shell.extensions.dash-to-dock extend-height false || true
+gsettings set org.gnome.shell.extensions.dash-to-dock show-mounts false || true
 
-gsettings set org.gnome.shell.extensions.blur-my-shell panel-blur true
-gsettings set org.gnome.shell.extensions.blur-my-shell dash-blur true
-gsettings set org.gnome.shell.extensions.blur-my-shell overview-blur true
-gsettings set org.gnome.shell.extensions.blur-my-shell sigma 30
+gsettings set org.gnome.shell.extensions.blur-my-shell panel-blur true || true
+gsettings set org.gnome.shell.extensions.blur-my-shell dash-blur true || true
+gsettings set org.gnome.shell.extensions.blur-my-shell overview-blur true || true
+gsettings set org.gnome.shell.extensions.blur-my-shell sigma 30 || true
 
-gsettings set org.gnome.shell.extensions.rounded-window-corners corner-radius 12
-gsettings set org.gnome.shell.extensions.rounded-window-corners smoothing true
+gsettings set org.gnome.shell.extensions.rounded-window-corners corner-radius 12 || true
+gsettings set org.gnome.shell.extensions.rounded-window-corners smoothing true || true
 
-gsettings set org.gnome.desktop.interface enable-hot-corners false
-gsettings set org.gnome.mutter dynamic-workspaces true
-gsettings set org.gnome.mutter workspaces-only-on-primary true
+gsettings set org.gnome.desktop.interface enable-hot-corners false || true
+gsettings set org.gnome.mutter dynamic-workspaces true || true
+gsettings set org.gnome.mutter workspaces-only-on-primary true || true
 
-gsettings set org.gnome.desktop.peripherals.touchpad tap-to-click true
-gsettings set org.gnome.desktop.peripherals.touchpad natural-scroll true
+gsettings set org.gnome.desktop.peripherals.touchpad tap-to-click true || true
+gsettings set org.gnome.desktop.peripherals.touchpad natural-scroll true || true
 
-gsettings set org.gnome.settings-daemon.plugins.media-keys terminal '<Primary><Alt>t'
+gsettings set org.gnome.settings-daemon.plugins.media-keys terminal '<Primary><Alt>t' || true
 
-gsettings set org.gnome.system.location enabled false
-gsettings set org.gnome.desktop.privacy report-technical-problems false
+gsettings set org.gnome.system.location enabled false || true
+gsettings set org.gnome.desktop.privacy report-technical-problems false || true
 
 # -------------------------------
 # Default browser
 # -------------------------------
-xdg-settings set default-web-browser brave-browser.desktop
-xdg-mime default brave-browser.desktop text/html
-xdg-mime default brave-browser.desktop x-scheme-handler/http
-xdg-mime default brave-browser.desktop x-scheme-handler/https
+xdg-settings set default-web-browser brave-browser.desktop || true
+xdg-mime default brave-browser.desktop text/html || true
+xdg-mime default brave-browser.desktop x-scheme-handler/http || true
+xdg-mime default brave-browser.desktop x-scheme-handler/https || true
 
 # -------------------------------
 # Default terminal (Warp)
 # -------------------------------
-gsettings set org.gnome.desktop.default-applications.terminal exec 'warp-terminal'
-gsettings set org.gnome.desktop.default-applications.terminal exec-arg ''
-xdg-mime default dev.warp.Warp.desktop x-scheme-handler/terminal
+gsettings set org.gnome.desktop.default-applications.terminal exec 'warp-terminal' || true
+gsettings set org.gnome.desktop.default-applications.terminal exec-arg '' || true
+xdg-mime default dev.warp.Warp.desktop x-scheme-handler/terminal || true
 
 # -------------------------------
 # Default editor (VS Code)
 # -------------------------------
-xdg-mime default code.desktop text/plain
-xdg-mime default code.desktop inode/directory
-xdg-mime default code.desktop application/x-shellscript
-gsettings set org.gnome.desktop.default-applications.editor exec 'code'
-gsettings set org.gnome.desktop.default-applications.editor exec-arg '--new-window'
+xdg-mime default code.desktop text/plain || true
+xdg-mime default code.desktop inode/directory || true
+xdg-mime default code.desktop application/x-shellscript || true
+gsettings set org.gnome.desktop.default-applications.editor exec 'code' || true
+gsettings set org.gnome.desktop.default-applications.editor exec-arg '--new-window' || true
 
 # -------------------------------
 # GRUB Theme
 # -------------------------------
-sed -i 's|^#*GRUB_THEME=.*|GRUB_THEME="/usr/share/grub/themes/rudyrain/theme.txt"|' /etc/default/grub
+sed -i 's|^#*GRUB_THEME=.*|GRUB_THEME="/usr/share/grub/themes/rudyrain/theme.txt"|' /etc/default/grub || true
 update-grub || true
 
 # -------------------------------
@@ -116,10 +121,10 @@ update-grub || true
 update-alternatives --install \
     /usr/share/plymouth/themes/default.plymouth \
     default.plymouth \
-    /usr/share/plymouth/themes/rudyrain/rudyrain.plymouth 100
+    /usr/share/plymouth/themes/rudyrain/rudyrain.plymouth 100 || true
 
 update-alternatives --set default.plymouth \
-    /usr/share/plymouth/themes/rudyrain/rudyrain.plymouth
+    /usr/share/plymouth/themes/rudyrain/rudyrain.plymouth || true
 
 update-initramfs -u || true
 
@@ -129,16 +134,16 @@ update-initramfs -u || true
 sed -i 's/enabled=1/enabled=0/' /etc/default/apport || true
 systemctl disable apport.service || true
 
-flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo || true
 
-gsettings set org.gnome.desktop.interface font-name 'Inter 11'
-gsettings set org.gnome.desktop.interface document-font-name 'Inter 11'
-gsettings set org.gnome.desktop.interface monospace-font-name 'JetBrains Mono 11'
-gsettings set org.gnome.desktop.interface titlebar-font 'Inter Bold 11'
+gsettings set org.gnome.desktop.interface font-name 'Inter 11' || true
+gsettings set org.gnome.desktop.interface document-font-name 'Inter 11' || true
+gsettings set org.gnome.desktop.interface monospace-font-name 'JetBrains Mono 11' || true
+gsettings set org.gnome.desktop.interface titlebar-font 'Inter Bold 11' || true
 
 chmod -x /etc/update-motd.d/50-motd-news || true
 
-glib-compile-schemas /usr/share/glib-2.0/schemas/
+glib-compile-schemas /usr/share/glib-2.0/schemas/ || true
 
 # -------------------------------
 # GDM Theme Override
