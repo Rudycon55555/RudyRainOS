@@ -1,46 +1,58 @@
 #!/bin/bash
 set -e
 
-# Apply RudyRainOS default shell as Zsh
+# Only run GNOME settings if a user session exists
+USER_HOME=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(id -u "$SUDO_USER")/bus"
+
+# -------------------------------
+# Default shell (safe version)
+# -------------------------------
 if command -v zsh >/dev/null 2>&1; then
-    chsh -s /usr/bin/zsh
+    chsh -s /usr/bin/zsh "$SUDO_USER" || true
 fi
 
-# Apply RudyRainOS default wallpaper
+# -------------------------------
+# Wallpaper
+# -------------------------------
 if [ -f /usr/share/rudyraindesktop/wallpapers/default.jpg ]; then
     gsettings set org.gnome.desktop.background picture-uri "file:///usr/share/rudyraindesktop/wallpapers/default.jpg"
     gsettings set org.gnome.desktop.background picture-uri-dark "file:///usr/share/rudyraindesktop/wallpapers/default.jpg"
 fi
 
-# Apply RudyRainOS GTK theme
+# -------------------------------
+# Themes
+# -------------------------------
 gsettings set org.gnome.desktop.interface gtk-theme "RudyRainGTK"
-
-# Apply RudyRainOS icon theme
 gsettings set org.gnome.desktop.interface icon-theme "RudyRainIcons"
-
-# Apply RudyRainOS cursor theme
 gsettings set org.gnome.desktop.interface cursor-theme "RudyRainCursor"
-
-# Apply RudyRainOS Shell theme
 gsettings set org.gnome.shell.extensions.user-theme name "RudyRainShell"
 
-# Apply RudyRainOS Terminal Theme
+# -------------------------------
+# Terminal profile import
+# -------------------------------
 if [ -f /usr/share/rudyraindesktop/terminal-profiles/RudyRainOS.json ]; then
     dconf load /org/gnome/terminal/legacy/profiles:/ < /usr/share/rudyraindesktop/terminal-profiles/RudyRainOS.json
 fi
 
-# Apply RudyRainOS sound theme
+# -------------------------------
+# Sound theme
+# -------------------------------
 gsettings set org.gnome.desktop.sound theme-name "RudyRainOS"
 gsettings set org.gnome.desktop.sound event-sounds true
 
-# Apply RudyRainOS GNOME Extensions
-gnome-extensions enable user-theme@gnome-shell-extensions.gcampax.github.com
-gnome-extensions enable appindicatorsupport@rgcjonas.gmail.com
-gnome-extensions enable dash-to-dock@micxgx.gmail.com
-gnome-extensions enable blur-my-shell@aunetx
-gnome-extensions enable rounded-window-corners@yilozt
+# -------------------------------
+# GNOME Extensions
+# -------------------------------
+gnome-extensions enable user-theme@gnome-shell-extensions.gcampax.github.com || true
+gnome-extensions enable appindicatorsupport@rgcjonas.gmail.com || true
+gnome-extensions enable dash-to-dock@micxgx.gmail.com || true
+gnome-extensions enable blur-my-shell@aunetx || true
+gnome-extensions enable rounded-window-corners@yilozt || true
 
-# Apply RudyRainOS GNOME Defaults
+# -------------------------------
+# GNOME Defaults
+# -------------------------------
 gsettings set org.gnome.shell.extensions.dash-to-dock dock-position 'BOTTOM'
 gsettings set org.gnome.shell.extensions.dash-to-dock dash-max-icon-size 42
 gsettings set org.gnome.shell.extensions.dash-to-dock autohide true
@@ -68,29 +80,39 @@ gsettings set org.gnome.settings-daemon.plugins.media-keys terminal '<Primary><A
 gsettings set org.gnome.system.location enabled false
 gsettings set org.gnome.desktop.privacy report-technical-problems false
 
+# -------------------------------
 # Default browser
+# -------------------------------
 xdg-settings set default-web-browser brave-browser.desktop
 xdg-mime default brave-browser.desktop text/html
 xdg-mime default brave-browser.desktop x-scheme-handler/http
 xdg-mime default brave-browser.desktop x-scheme-handler/https
 
+# -------------------------------
 # Default terminal (Warp)
+# -------------------------------
 gsettings set org.gnome.desktop.default-applications.terminal exec 'warp-terminal'
 gsettings set org.gnome.desktop.default-applications.terminal exec-arg ''
 xdg-mime default dev.warp.Warp.desktop x-scheme-handler/terminal
 
+# -------------------------------
 # Default editor (VS Code)
+# -------------------------------
 xdg-mime default code.desktop text/plain
 xdg-mime default code.desktop inode/directory
 xdg-mime default code.desktop application/x-shellscript
 gsettings set org.gnome.desktop.default-applications.editor exec 'code'
 gsettings set org.gnome.desktop.default-applications.editor exec-arg '--new-window'
 
-# Apply RudyRain GRUB stuff
+# -------------------------------
+# GRUB Theme
+# -------------------------------
 sed -i 's|^#*GRUB_THEME=.*|GRUB_THEME="/usr/share/grub/themes/rudyrain/theme.txt"|' /etc/default/grub
-update-grub
+update-grub || true
 
-# Install RudyRainOS Plymouth theme
+# -------------------------------
+# Plymouth Theme
+# -------------------------------
 update-alternatives --install \
     /usr/share/plymouth/themes/default.plymouth \
     default.plymouth \
@@ -99,9 +121,11 @@ update-alternatives --install \
 update-alternatives --set default.plymouth \
     /usr/share/plymouth/themes/rudyrain/rudyrain.plymouth
 
-# Rebuild initramfs to apply theme
-update-initramfs -u
+update-initramfs -u || true
 
+# -------------------------------
+# System tweaks
+# -------------------------------
 sed -i 's/enabled=1/enabled=0/' /etc/default/apport || true
 systemctl disable apport.service || true
 
@@ -113,5 +137,16 @@ gsettings set org.gnome.desktop.interface monospace-font-name 'JetBrains Mono 11
 gsettings set org.gnome.desktop.interface titlebar-font 'Inter Bold 11'
 
 chmod -x /etc/update-motd.d/50-motd-news || true
+
+glib-compile-schemas /usr/share/glib-2.0/schemas/
+
+# -------------------------------
+# GDM Theme Override
+# -------------------------------
+if [ -f /usr/share/gnome-shell/theme/RudyRainOS-gdm.css ]; then
+    ln -sf /usr/share/gnome-shell/theme/RudyRainOS-gdm.css \
+          /usr/share/gnome-shell/theme/gdm3.css
+    chmod 644 /usr/share/gnome-shell/theme/RudyRainOS-gdm.css
+fi
 
 exit 0

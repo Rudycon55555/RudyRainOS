@@ -1,0 +1,45 @@
+[org.gnome.desktop.interface]
+gtk-theme='RudyRainGTK'
+icon-theme='RudyRainIcons'
+cursor-theme='RudyRainCursor'
+font-name='Inter 11'
+document-font-name='Inter 11'
+monospace-font-name='JetBrains Mono 11'
+titlebar-font='Inter Bold 11'
+enable-hot-corners=false
+
+[org.gnome.desktop.background]
+picture-uri='file:///usr/share/rudyraindesktop/wallpapers/default.jpg'
+picture-uri-dark='file:///usr/share/rudyraindesktop/wallpapers/default.jpg'
+
+[org.gnome.desktop.peripherals.touchpad]
+tap-to-click=true
+natural-scroll=true
+
+[org.gnome.desktop.privacy]
+report-technical-problems=false
+
+[org.gnome.system.location]
+enabled=false
+
+[org.gnome.mutter]
+dynamic-workspaces=true
+workspaces-only-on-primary=true
+
+[org.gnome.shell.extensions.dash-to-dock]
+dock-position='BOTTOM'
+dash-max-icon-size=42
+autohide=true
+intellihide=true
+extend-height=false
+show-mounts=false
+
+[org.gnome.shell.extensions.blur-my-shell]
+panel-blur=true
+dash-blur=true
+overview-blur=true
+sigma=30
+
+[org.gnome.shell.extensions.rounded-window-corners]
+corner-radius=12
+smoothing=true

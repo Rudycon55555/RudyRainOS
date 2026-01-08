@@ -1,0 +1,68 @@
+/* RudyRainOS GDM Theme — Rainbow Gradient, Silky, Modern, Flowy */
+
+#lockDialogGroup {
+    background: linear-gradient(
+        135deg,
+        #4CC9F0 0%,
+        #7209B7 35%,
+        #F72585 70%,
+        #4CC9F0 100%
+    );
+    background-size: 300% 300%;
+    animation: rr-gradient-flow 12s ease infinite;
+}
+
+@keyframes rr-gradient-flow {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* Sleek translucent top panel */
+#panel {
+    background-color: rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(18px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* Center logo with glow */
+.login-dialog-logo {
+    background-image: url("file:///usr/share/rudyraindesktop/logo/logo.png");
+    background-size: contain;
+    background-repeat: no-repeat;
+    width: 140px;
+    height: 140px;
+    margin-bottom: 20px;
+    filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.35));
+}
+
+/* Silky input fields */
+.login-dialog .entry {
+    background-color: rgba(255, 255, 255, 0.15);
+    border-radius: 14px;
+    padding: 10px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(12px);
+    color: white;
+}
+
+/* Sleek buttons */
+.login-dialog .button {
+    background: linear-gradient(135deg, #F72585, #7209B7);
+    border-radius: 12px;
+    padding: 8px 18px;
+    color: white;
+    border: none;
+    transition: background 0.3s ease, transform 0.2s ease;
+}
+
+.login-dialog .button:hover {
+    background: linear-gradient(135deg, #4CC9F0, #7209B7);
+    transform: translateY(-2px);
+}
+
+/* Text styling */
+#loginDialog {
+    color: white;
+    text-shadow: 0 0 8px rgba(0,0,0,0.4);
+}
