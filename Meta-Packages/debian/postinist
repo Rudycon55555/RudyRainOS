@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# Set Zsh as default shell for new users
+# Apply RudyRainOS default shell as Zsh
 if command -v zsh >/dev/null 2>&1; then
     chsh -s /usr/bin/zsh
 fi
@@ -39,5 +39,29 @@ gnome-extensions enable appindicatorsupport@rgcjonas.gmail.com
 gnome-extensions enable dash-to-dock@micxgx.gmail.com
 gnome-extensions enable blur-my-shell@aunetx
 gnome-extensions enable rounded-window-corners@yilozt
+
+# Apply RudyRainOS GNOME Defaults
+gsettings set org.gnome.shell.extensions.dash-to-dock dock-position 'BOTTOM'
+gsettings set org.gnome.shell.extensions.dash-to-dock dash-max-icon-size 42
+gsettings set org.gnome.shell.extensions.dash-to-dock autohide true
+gsettings set org.gnome.shell.extensions.dash-to-dock intellihide true
+gsettings set org.gnome.shell.extensions.dash-to-dock extend-height false
+gsettings set org.gnome.shell.extensions.dash-to-dock show-mounts false
+gsettings set org.gnome.shell.extensions.blur-my-shell panel-blur true
+gsettings set org.gnome.shell.extensions.blur-my-shell dash-blur true
+gsettings set org.gnome.shell.extensions.blur-my-shell overview-blur true
+gsettings set org.gnome.shell.extensions.blur-my-shell sigma 30
+gsettings set org.gnome.shell.extensions.rounded-window-corners corner-radius 12
+gsettings set org.gnome.shell.extensions.rounded-window-corners smoothing true
+gsettings set org.gnome.desktop.interface enable-hot-corners false
+gsettings set org.gnome.mutter dynamic-workspaces true
+gsettings set org.gnome.mutter workspaces-only-on-primary true
+gsettings set org.gnome.desktop.peripherals.touchpad tap-to-click true
+gsettings set org.gnome.desktop.peripherals.touchpad natural-scroll true
+gsettings set org.gnome.settings-daemon.plugins.media-keys terminal '<Primary><Alt>t'
+gsettings set org.gnome.system.location enabled false
+gsettings set org.gnome.desktop.privacy report-technical-problems false
+xdg-settings set default-web-browser brave-browser.desktop
+gsettings set org.gnome.desktop.default-applications.terminal exec 'gnome-terminal'
 
 exit 0
