@@ -1,0 +1,140 @@
+/* RudyRainOS GNOME Shell Overrides — silky, flowy, rainbow, modern */
+
+/* Gradient variables */
+@define-color rr-start #4CC9F0;
+@define-color rr-mid   #7209B7;
+@define-color rr-end   #F72585;
+
+/* ------------------------------
+   TOP BAR (Panel)
+   ------------------------------ */
+
+#panel {
+    background: linear-gradient(
+        135deg,
+        @rr-start,
+        @rr-mid 40%,
+        @rr-end
+    );
+    background-size: 300% 300%;
+    animation: rr-panel-flow 16s ease infinite;
+
+    color: white;
+    font-weight: 500;
+    border-bottom: 1px solid rgba(255,255,255,0.15);
+    backdrop-filter: blur(18px);
+}
+
+@keyframes rr-panel-flow {
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* ------------------------------
+   DASH (Dock)
+   ------------------------------ */
+
+#dash {
+    background-color: rgba(0,0,0,0.35);
+    border-radius: 18px;
+    padding: 10px;
+    backdrop-filter: blur(12px);
+}
+
+.dash-item-container .app-well-app,
+.dash-item-container .show-apps {
+    border-radius: 14px;
+    transition: 200ms ease;
+}
+
+.dash-item-container .app-well-app:hover,
+.dash-item-container .show-apps:hover {
+    background-color: rgba(255,255,255,0.15);
+    transform: translateY(-2px);
+}
+
+/* ------------------------------
+   OVERVIEW BACKGROUND
+   ------------------------------ */
+
+#overviewGroup {
+    background: linear-gradient(
+        135deg,
+        @rr-start,
+        @rr-mid 40%,
+        @rr-end
+    );
+    background-size: 300% 300%;
+    animation: rr-overview-flow 20s ease infinite;
+}
+
+@keyframes rr-overview-flow {
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* ------------------------------
+   QUICK SETTINGS
+   ------------------------------ */
+
+.quick-settings {
+    background-color: rgba(0,0,0,0.45);
+    border-radius: 18px;
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.15);
+}
+
+.quick-toggle, .quick-slider {
+    border-radius: 12px;
+    background-color: rgba(255,255,255,0.12);
+    transition: 200ms ease;
+}
+
+.quick-toggle:hover, .quick-slider:hover {
+    background-color: rgba(255,255,255,0.20);
+}
+
+/* ------------------------------
+   NOTIFICATIONS
+   ------------------------------ */
+
+.notification-banner {
+    background-color: rgba(0,0,0,0.45);
+    border-radius: 16px;
+    backdrop-filter: blur(14px);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: white;
+}
+
+/* ------------------------------
+   WORKSPACE SWITCHER
+   ------------------------------ */
+
+.workspace-thumbnail {
+    border-radius: 12px;
+    background-color: rgba(255,255,255,0.10);
+    border: 1px solid rgba(255,255,255,0.15);
+}
+
+/* ------------------------------
+   LOCK SCREEN
+   ------------------------------ */
+
+#lockDialogGroup {
+    background: linear-gradient(
+        135deg,
+        @rr-start,
+        @rr-mid 40%,
+        @rr-end
+    );
+    background-size: 300% 300%;
+    animation: rr-lock-flow 18s ease infinite;
+}
+
+@keyframes rr-lock-flow {
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}

@@ -1,0 +1,54 @@
+/* RudyRainOS GTK4 Overrides — sleek, flowy, gradient */
+
+@define-color rr-gradient-start #4CC9F0;
+@define-color rr-gradient-mid #7209B7;
+@define-color rr-gradient-end #F72585;
+
+/* Window background */
+window, dialog, .background {
+    background: linear-gradient(
+        135deg,
+        @rr-gradient-start,
+        @rr-gradient-mid 40%,
+        @rr-gradient-end
+    );
+    background-size: 300% 300%;
+    animation: rr-flow 18s ease infinite;
+}
+
+/* Buttons */
+button {
+    border-radius: 10px;
+    background: linear-gradient(
+        135deg,
+        @rr-gradient-end,
+        @rr-gradient-mid
+    );
+    color: white;
+    border: none;
+    transition: 200ms ease;
+}
+
+button:hover {
+    background: linear-gradient(
+        135deg,
+        @rr-gradient-start,
+        @rr-gradient-mid
+    );
+    transform: translateY(-1px);
+}
+
+/* Entries */
+entry, textfield {
+    background-color: rgba(255,255,255,0.15);
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.25);
+    color: white;
+}
+
+/* Animation */
+@keyframes rr-flow {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
