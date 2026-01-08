@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=RudyRainOS
+Description=RudyRainOS Boot Splash
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/rudyrain
+ScriptFile=/usr/share/plymouth/themes/rudyrain/rudyrain.script

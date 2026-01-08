@@ -1,0 +1,35 @@
+# RudyRainOS Plymouth Boot Animation — PNG spinner version
+
+# Load background and logo
+background_image = Image("background.png");
+logo_image = Image("logo.png");
+spinner_image = Image("spinner.png");
+
+# Background sprite
+background_sprite = Sprite(background_image);
+background_sprite.SetZ(-100);
+
+# Logo sprite (centered above spinner)
+logo_sprite = Sprite(logo_image);
+logo_sprite.SetPosition(
+    Screen.Width/2 - logo_image.Width/2,
+    Screen.Height/2 - logo_image.Height/2 - 40
+);
+
+# Spinner sprite (centered below logo)
+spinner_sprite = Sprite(spinner_image);
+spinner_sprite.SetPosition(
+    Screen.Width/2 - spinner_image.Width/2,
+    Screen.Height/2 + logo_image.Height/2
+);
+
+# Rotation angle
+angle = 0;
+
+# Animation loop
+fun update() {
+    angle = angle + 5;
+    spinner_sprite.SetRotation(angle);
+}
+
+Plymouth.SetUpdateFunction(update);

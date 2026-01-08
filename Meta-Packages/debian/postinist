@@ -68,4 +68,16 @@ gsettings set org.gnome.desktop.default-applications.terminal exec 'gnome-termin
 sed -i 's|^#*GRUB_THEME=.*|GRUB_THEME="/usr/share/grub/themes/rudyrain/theme.txt"|' /etc/default/grub
 update-grub
 
+# Install RudyRainOS Plymouth theme
+update-alternatives --install \
+    /usr/share/plymouth/themes/default.plymouth \
+    default.plymouth \
+    /usr/share/plymouth/themes/rudyrain/rudyrain.plymouth 100
+
+update-alternatives --set default.plymouth \
+    /usr/share/plymouth/themes/rudyrain/rudyrain.plymouth
+
+# Rebuild initramfs to apply theme
+update-initramfs -u
+
 exit 0
