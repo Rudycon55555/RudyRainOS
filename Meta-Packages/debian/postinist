@@ -64,4 +64,8 @@ gsettings set org.gnome.desktop.privacy report-technical-problems false
 xdg-settings set default-web-browser brave-browser.desktop
 gsettings set org.gnome.desktop.default-applications.terminal exec 'gnome-terminal'
 
+# Apply RudyRain GRUB stuff
+sed -i 's|^#*GRUB_THEME=.*|GRUB_THEME="/usr/share/grub/themes/rudyrain/theme.txt"|' /etc/default/grub
+update-grub
+
 exit 0

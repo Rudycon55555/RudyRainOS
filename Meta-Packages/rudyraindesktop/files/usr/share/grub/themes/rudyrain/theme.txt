@@ -1,0 +1,23 @@
+# RudyRainOS GRUB Theme
+
+title-text: "RudyRainOS"
+title-font: "DejaVu Sans Bold 32"
+title-color: "#FFFFFF"
+
+desktop-image: "background.png"
+
+terminal-box: "terminal_box_*.png"
+terminal-font: "DejaVu Sans Mono 16"
+terminal-text-color: "#FFFFFF"
+
++ boot_menu {
+    left = 50%
+    top = 50%
+    width = 50%
+    height = 50%
+    item_height = 32
+    item_padding = 4
+    item_color = "#CCCCCC"
+    selected_item_color = "#FFFFFF"
+    selected_item_background = "#444444"
+}
