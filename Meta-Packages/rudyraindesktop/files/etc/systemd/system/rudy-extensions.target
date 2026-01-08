@@ -1,0 +1,3 @@
+[Unit]
+Description=RudyRainOS Stage 4: Extensions and Background Services
+After=rudy-extra-ui.target
