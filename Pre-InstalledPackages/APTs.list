@@ -10,50 +10,167 @@ echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg] \
     https://brave-browser-apt-release.s3.brave.com/ stable main" \
     | tee /etc/apt/sources.list.d/brave-browser-release.list
 
+
 # ---------------------------------------------------------
 # Packages to Install (Debian official repos OR external)
 # ---------------------------------------------------------
 
+# -------------------------
 # Web Browser
+# -------------------------
 brave-browser
 
+# -------------------------
 # Shell
+# -------------------------
 zsh
 
+# -------------------------
 # Compilers & Build Tools
+# -------------------------
 clang
 clang++
 make
 cmake
+meson
+ninja-build
+pkg-config
+build-essential
 
+# -------------------------
 # Creative Apps
+# -------------------------
 krita
 
+# -------------------------
 # Office Suite
+# -------------------------
 libreoffice
 
+# -------------------------
 # Media Player
+# -------------------------
 vlc
 
+# -------------------------
 # Screenshot Tool
+# -------------------------
 flameshot
 
+# -------------------------
 # Package Manager GUI
+# -------------------------
 synaptic
 
+# -------------------------
 # Development Tools
+# -------------------------
 git
 vim
 nano
 
+# -------------------------
 # Snap Support
+# -------------------------
 snapd
 
+# -------------------------
 # Networking Tools
+# -------------------------
 openssh-client
 curl
 wget
 
+# -------------------------
 # Python (latest available in Debian)
+# -------------------------
 python3
 python3-pip
+
+
+# ---------------------------------------------------------
+# RudyRainOS Standard Library Set (C/C++/GTK/Graphics/etc.)
+# ---------------------------------------------------------
+
+# -------------------------
+# Core C/C++ Development
+# -------------------------
+libstdc++-dev
+libc6-dev
+libgcc-12-dev
+libunwind-dev
+
+# -------------------------
+# Boost (full suite)
+# -------------------------
+libboost-all-dev
+
+# -------------------------
+# Modern C++ Libraries
+# -------------------------
+libfmt-dev
+libspdlog-dev
+
+# -------------------------
+# GNOME / GTK Development
+# -------------------------
+libglib2.0-dev
+libgtk-4-dev
+libadwaita-1-dev
+gobject-introspection
+vala
+
+# -------------------------
+# Graphics / Game Development
+# -------------------------
+libsdl2-dev
+libsdl2-image-dev
+libsdl2-mixer-dev
+libsdl2-ttf-dev
+libglfw3-dev
+libglew-dev
+libopenal-dev
+mesa-common-dev
+libvulkan-dev
+
+# -------------------------
+# Networking / Web
+# -------------------------
+libcurl4-openssl-dev
+libsoup2.4-dev
+libssl-dev
+libnghttp2-dev
+
+# -------------------------
+# Data / Serialization
+# -------------------------
+protobuf-compiler
+libprotobuf-dev
+libflatbuffers-dev
+libyaml-cpp-dev
+libjsoncpp-dev
+rapidjson-dev
+
+# -------------------------
+# Audio / Media
+# -------------------------
+libgstreamer1.0-dev
+libgstreamer-plugins-base1.0-dev
+libpipewire-0.3-dev
+
+# -------------------------
+# Compression / Storage
+# -------------------------
+zlib1g-dev
+libzstd-dev
+liblz4-dev
+libsqlite3-dev
+libleveldb-dev
+librocksdb-dev
+
+# -------------------------
+# Security / Crypto
+# -------------------------
+libsodium-dev
+libgcrypt20-dev
+libargon2-dev
