@@ -3,15 +3,26 @@ const posix = std.posix;
 
 const ExecError = error{
     NoCommand,
-    NoPassword,
-    AuthFailed,
-    TerminalError,
+    NotAllowed,
+    UserNotFound,
+    InsecureConfig,
+    LogFailure,
 };
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
+
+    // 1. Identity & Environment Scrubbing
+    const uid = posix.getuid();
+    const is_root = (uid == 0);
+
+    var env_map = try std.process.getEnvMap(allocator);
+    defer env_map.deinit();
+    env_map.clear();
+    try env_map.put("PATH", "/usr/bin:/bin:/usr/sbin:/sbin");
+    try env_map.put("TERM", "xterm-256color");
 
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
@@ -22,88 +33,114 @@ pub fn main() !void {
     }
 
     var target_user: []const u8 = "root";
-    var first_cmd_index: usize = 1;
+    var cmd_idx: usize = 0;
 
-    // Parse Args
     var i: usize = 1;
     while (i < args.len) : (i += 1) {
         if (std.mem.startsWith(u8, args[i], "-usr=")) {
             target_user = args[i]["-usr=".len..];
         } else {
-            first_cmd_index = i;
+            cmd_idx = i;
             break;
         }
     }
+    if (cmd_idx == 0) return ExecError.NoCommand;
 
-    if (first_cmd_index >= args.len) return ExecError.NoCommand;
+    // 2. Authorization Logic
+    const caller_name = try getCurrentUsername(allocator);
+    defer allocator.free(caller_name);
 
-    // Get Password securely
-    var pw_buf: [256]u8 = undefined;
-    const password = try getSecurePassword(&pw_buf, target_user);
-    // Ensure we wipe this buffer no matter how the function exits
-    defer std.crypto.utils.secureZero(u8, &pw_buf);
+    var allowed = is_root; // Root is always allowed
+    if (!allowed) {
+        allowed = checkPermissions(allocator, caller_name, target_user) catch |err| {
+            try logEvent(caller_name, target_user, args[cmd_idx], .error_cfg);
+            return err;
+        };
+    }
 
-    // Verify and Run
-    if (try verifyAndRun(allocator, target_user, password, args[first_cmd_index..])) {
-        return;
+    // 3. Logging & Execution
+    if (allowed) {
+        try logEvent(caller_name, target_user, args[cmd_idx], .success);
+        try runSudo(allocator, target_user, args[cmd_idx..], &env_map);
     } else {
-        return ExecError.AuthFailed;
+        try logEvent(caller_name, target_user, args[cmd_idx], .denied);
+        std.debug.print("execas: {s} is not in the execasers file.\n", .{caller_name});
+        posix.exit(1);
     }
 }
 
-fn getSecurePassword(buf: [256]u8, user: []const u8) ![]const u8 {
-    const stdin_fd = std.io.getStdIn().handle();
-    
-    // 1. Get current terminal state
-    const original_termios = try posix.tcgetattr(stdin_fd);
-    var no_echo = original_termios;
-    
-    // 2. Disable ECHO bit
-    no_echo.lflag.ECHO = false;
-    try posix.tcsetattr(stdin_fd, .NOW, no_echo);
-    
-    // 3. Prompt and Read
-    const stdout = std.io.getStdOut().writer();
-    try stdout.print("Password for {s}: ", .{user});
-    
-    const stdin = std.io.getStdIn().reader();
-    const line = try stdin.readUntilDelimiterOrEof(buf, '\n') orelse return ExecError.NoPassword;
-    
-    // 4. Restore terminal and print newline
-    try posix.tcsetattr(stdin_fd, .NOW, original_termios);
-    try stdout.print("\n", .{});
+const LogStatus = enum { success, denied, error_cfg };
 
-    return std.mem.trimRight(u8, line, "\r");
-}
-
-fn verifyAndRun(
-    allocator: std.mem.Allocator,
-    user: []const u8,
-    password: []const u8,
-    cmd: []const []const u8,
-) !bool {
-    // Construct: sudo -S -k -u [user] [cmd...]
-    // -S: Read password from stdin
-    // -k: Ignore cached sudo credentials (force check)
-    var argv = std.ArrayList([]const u8).init(allocator);
-    defer argv.deinit();
-
-    try argv.appendSlice(&.{ "sudo", "-S", "-k", "-u", user });
-    try argv.appendSlice(cmd);
-
-    var child = std.process.Child.init(argv.items, allocator);
-    child.stdin_behavior = .Pipe;
-
-    try child.spawn();
-
-    if (child.stdin) |in| {
-        try in.writer().print("{s}\n", .{password});
-        in.close();
-    }
-
-    const term = try child.wait();
-    return switch (term) {
-        .Exited => |code| code == 0,
-        else => false,
+fn logEvent(caller: []const u8, target: []const u8, cmd: []const u8, status: LogStatus) !void {
+    const log_path = "/var/log/execas.log";
+    const file = std.fs.cwd().openFile(log_path, .{ .mode = .write_only }) catch |err| switch (err) {
+        error.FileNotFound => try std.fs.cwd().createFile(log_path, .{}),
+        else => return err,
     };
+    defer file.close();
+    try file.seekFromEnd(0);
+
+    const ts = std.time.timestamp();
+    const status_str = @tagName(status);
+    
+    var buf: [1024]u8 = undefined;
+    const msg = try std.fmt.bufPrint(&buf, "[{d}] {s}: {s} -> {s} (cmd: {s})\n", .{ ts, status_str, caller, target, cmd });
+    _ = try file.write(msg);
+}
+
+fn checkPermissions(allocator: std.mem.Allocator, caller: []const u8, target: []const u8) !bool {
+    const path = "/etc/execasers";
+    
+    // Validate File Security
+    const stat = posix.stat(path) catch return false;
+    if (stat.uid != 0 or (stat.mode & 0o022 != 0)) return ExecError.InsecureConfig;
+
+    const file = std.fs.cwd().openFile(path, .{}) catch return false;
+    defer file.close();
+
+    var br = std.io.bufferedReader(file.reader());
+    var reader = br.reader();
+    
+    while (true) {
+        const line = reader.readUntilDelimiterOrEofAlloc(allocator, '\n', 4096) catch break orelse break;
+        defer allocator.free(line);
+
+        const trimmed = std.mem.trim(u8, line, " \t\r");
+        if (trimmed.len == 0 or trimmed[0] == '#') continue;
+
+        if (trimmed[0] == '!') {
+            var it = std.mem.tokenizeAny(u8, trimmed[1..], " \t(),");
+            const entry_user = it.next() orelse continue;
+
+            if (std.mem.eql(u8, entry_user, caller)) {
+                while (it.next()) |allowed| {
+                    if (std.mem.eql(u8, allowed, "all") or std.mem.eql(u8, allowed, target)) return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+fn runSudo(allocator: std.mem.Allocator, target: []const u8, cmd: []const []const u8, env: *std.process.EnvMap) !void {
+    var argv = try allocator.alloc([]const u8, 3 + cmd.len);
+    defer allocator.free(argv);
+
+    argv[0] = "sudo";
+    argv[1] = "-u";
+    argv[2] = target;
+    for (cmd, 0..) |c, i| argv[3 + i] = c;
+
+    var child = std.process.Child.init(argv, allocator);
+    child.envp = env; // Secure Env
+    _ = try child.spawnAndWait();
+}
+
+fn getCurrentUsername(allocator: std.mem.Allocator) ![]u8 {
+    const uid = posix.getuid();
+    var buf: [1024]u8 = undefined;
+    var pwd: posix.passwd = undefined;
+    var result: ?*posix.passwd = null;
+    if (posix.getpwuid_r(uid, &pwd, &buf, &result) != 0 or result == null) return error.UserNotFound;
+    return try allocator.dupe(u8, std.mem.span(pwd.pw_name));
 }
