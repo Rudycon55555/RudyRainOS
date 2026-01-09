@@ -1,40 +1,4 @@
-Source: rudyraindesktop
-Section: metapackages
-Priority: optional
-Maintainer: RudyRainOS Team <rudrafordev@protonmail.com>
-Standards-Version: 4.6.0
-Build-Depends: debhelper (>= 12)
-
-Package: rudyraindesktop
-Architecture: all
-Depends:
- gnome-shell,
- gnome-terminal,
- nautilus,
- gnome-control-center,
- gnome-system-monitor,
- gnome-text-editor,
- firefox-esr,
- libreoffice,
- vlc,
- krita,
- flameshot,
- synaptic,
- git,
- vim,
- nano,
- zsh,
- snapd,
- curl,
- wget,
- openssh-client,
- python3,
- python3-pip
-Description: RudyRainOS Desktop Environment
- A colorful, developer-friendly desktop environment for RudyRainOS.
- Includes default apps, settings, themes, and branding.
- 
- Depends: gnome-tweaks,
+Depends: gnome-tweaks,
          gnome-shell-extensions,
          extension-manager,
          brave-browser,
@@ -52,4 +16,55 @@ Description: RudyRainOS Desktop Environment
          p7zip-full,
          gnome-disk-utility,
          fonts-inter,
-         fonts-jetbrains-mono
+         fonts-jetbrains-mono,
+         clang,
+         clang++,
+         make,
+         cmake,
+         meson,
+         ninja-build,
+         pkg-config,
+         build-essential,
+         libstdc++-dev,
+         libc6-dev,
+         libgcc-12-dev,
+         libunwind-dev,
+         libboost-all-dev,
+         libfmt-dev,
+         libspdlog-dev,
+         libglib2.0-dev,
+         libgtk-4-dev,
+         libadwaita-1-dev,
+         gobject-introspection,
+         vala,
+         libsdl2-dev,
+         libsdl2-image-dev,
+         libsdl2-mixer-dev,
+         libsdl2-ttf-dev,
+         libglfw3-dev,
+         libglew-dev,
+         libopenal-dev,
+         mesa-common-dev,
+         libvulkan-dev,
+         libcurl4-openssl-dev,
+         libsoup2.4-dev,
+         libssl-dev,
+         libnghttp2-dev,
+         protobuf-compiler,
+         libprotobuf-dev,
+         libflatbuffers-dev,
+         libyaml-cpp-dev,
+         libjsoncpp-dev,
+         rapidjson-dev,
+         libgstreamer1.0-dev,
+         libgstreamer-plugins-base1.0-dev,
+         libpipewire-0.3-dev,
+         zlib1g-dev,
+         libzstd-dev,
+         liblz4-dev,
+         libsqlite3-dev,
+         libleveldb-dev,
+         librocksdb-dev,
+         libsodium-dev,
+         libgcrypt20-dev,
+         libargon2-dev
