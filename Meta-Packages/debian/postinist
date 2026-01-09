@@ -154,4 +154,11 @@ if [ -f /usr/share/gnome-shell/theme/RudyRainOS-gdm.css ]; then
     chmod 644 /usr/share/gnome-shell/theme/RudyRainOS-gdm.css
 fi
 
+# -------------------------------
+# RudyRainOS Boot Staging
+# -------------------------------
+if [ -f /usr/lib/rudyraindesktop/generate-boot-overrides.sh ]; then
+    bash /usr/lib/rudyraindesktop/generate-boot-overrides.sh || true
+fi
+
 exit 0
