@@ -1,1 +1,8 @@
-# RudyRainOS execasers file
+# /etc/execasers - sample allowed execas entries
+# Lines starting with '#' are comments.
+# Format:
+#   !caller allowed_target1 allowed_target2 ...
+# Example:
+!alice all
+!sysadmin root
+# End of sample
