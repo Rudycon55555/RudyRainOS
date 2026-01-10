@@ -1,0 +1,11 @@
+[Unit]
+Description=RudyRainOS App Indexer
+After=loadtime.service
+Before=rudy-ui.target rudy-apps.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/rudy-app-indexer
+
+[Install]
+WantedBy=graphical-session.target
