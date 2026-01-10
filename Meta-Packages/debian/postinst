@@ -1,164 +1,133 @@
 #!/bin/bash
 set -e
 
-# Determine real user (SUDO_USER may be empty in chroot/ISO)
+# Debian postinst for rudyraindesktop
+# - safe guards for build/chroot vs real installed system
+# - only run user session actions when a real user and DBus session exist
+# - create /var/log/execas.log and sample /etc/execasers if missing
+
 REAL_USER="${SUDO_USER:-$USER}"
-USER_HOME=$(getent passwd "$REAL_USER" | cut -d: -f6)
-
-# Export DBus session if available
-if [ -d "/run/user/$(id -u "$REAL_USER")" ]; then
-    export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(id -u "$REAL_USER")/bus"
+# Try to find a real user home even if SUDO_USER empty (e.g., during install)
+if [ -n "$REAL_USER" ]; then
+    USER_HOME="$(getent passwd "$REAL_USER" | cut -d: -f6 || true)"
 fi
 
-# -------------------------------
-# Default shell (safe version)
-# -------------------------------
-if command -v zsh >/dev/null 2>&1 && [ "$REAL_USER" != "root" ]; then
-    chsh -s /usr/bin/zsh "$REAL_USER" || true
+# detect if we are likely inside a container/chroot/build environment:
+init_name="$(basename "$(readlink -f /proc/1/exe 2>/dev/null || true)")"
+SKIP_SYSTEM=false
+if [ "$init_name" != "systemd" ]; then
+    SKIP_SYSTEM=true
 fi
 
-# -------------------------------
-# Wallpaper
-# -------------------------------
-if [ -f /usr/share/rudyraindesktop/wallpapers/default.jpg ]; then
-    gsettings set org.gnome.desktop.background picture-uri "file:///usr/share/rudyraindesktop/wallpapers/default.jpg" || true
-    gsettings set org.gnome.desktop.background picture-uri-dark "file:///usr/share/rudyraindesktop/wallpapers/default.jpg" || true
+# Helper to safely run a command as the real user if possible
+run_as_user() {
+    local uid="$1"; shift
+    if [ -z "$REAL_USER" ] || [ -z "$uid" ] || [ ! -d "$USER_HOME" ]; then
+        return 0
+    fi
+    # prefer sudo if available
+    if command -v sudo >/dev/null 2>&1; then
+        sudo -u "$REAL_USER" XDG_RUNTIME_DIR="/run/user/$uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" "$@"
+    else
+        # try su fallback
+        su - "$REAL_USER" -c "XDG_RUNTIME_DIR=/run/user/$uid DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$uid/bus $*"
+    fi
+}
+
+# Create /var/log/execas.log if packaging expects it
+if [ ! -e /var/log/execas.log ]; then
+    touch /var/log/execas.log || true
+    chown root:root /var/log/execas.log 2>/dev/null || true
+    chmod 0644 /var/log/execas.log 2>/dev/null || true
 fi
 
-# -------------------------------
-# Themes
-# -------------------------------
-gsettings set org.gnome.desktop.interface gtk-theme "RudyRainGTK" || true
-gsettings set org.gnome.desktop.interface icon-theme "RudyRainIcons" || true
-gsettings set org.gnome.desktop.interface cursor-theme "RudyRainCursor" || true
-gsettings set org.gnome.shell.extensions.user-theme name "RudyRainShell" || true
-
-# -------------------------------
-# Terminal profile import
-# -------------------------------
-if [ -f /usr/share/rudyraindesktop/terminal-profiles/RudyRainOS.json ]; then
-    dconf load /org/gnome/terminal/legacy/profiles:/ < /usr/share/rudyraindesktop/terminal-profiles/RudyRainOS.json || true
+# Ensure /etc/execasers exists (packaging should install sample); create conservative sample if absent
+if [ ! -e /etc/execasers ]; then
+    cat > /etc/execasers <<'EOF' || true
+# /etc/execasers - sample execas rules
+# Format:
+#  !caller allowed_target1 allowed_target2 ...
+# Example:
+!alice all
+!sysadmin root
+EOF
+    chown root:root /etc/execasers 2>/dev/null || true
+    chmod 0644 /etc/execasers 2>/dev/null || true
 fi
 
-# -------------------------------
-# Sound theme
-# -------------------------------
-gsettings set org.gnome.desktop.sound theme-name "RudyRainOS" || true
-gsettings set org.gnome.desktop.sound event-sounds true || true
+# User-specific configuration: only attempt when we have a real user and a runtime bus
+if [ -n "$REAL_USER" ] && [ -n "$USER_HOME" ]; then
+    REAL_UID="$(id -u "$REAL_USER" 2>/dev/null || true)"
+    if [ -n "$REAL_UID" ] && [ -d "/run/user/$REAL_UID" ] && [ -S "/run/user/$REAL_UID/bus" ]; then
+        # Set wallpaper if asset exists
+        if [ -f /usr/share/rudyraindesktop/wallpapers/default.jpg ]; then
+            run_as_user "$REAL_UID" gsettings set org.gnome.desktop.background picture-uri "file:///usr/share/rudyraindesktop/wallpapers/default.jpg" || true
+            run_as_user "$REAL_UID" gsettings set org.gnome.desktop.background picture-uri-dark "file:///usr/share/rudyraindesktop/wallpapers/default.jpg" || true
+        fi
 
-# -------------------------------
-# GNOME Extensions
-# -------------------------------
-gnome-extensions enable user-theme@gnome-shell-extensions.gcampax.github.com || true
-gnome-extensions enable appindicatorsupport@rgcjonas.gmail.com || true
-gnome-extensions enable dash-to-dock@micxgx.gmail.com || true
-gnome-extensions enable blur-my-shell@aunetx || true
-gnome-extensions enable rounded-window-corners@yilozt || true
+        # Import terminal profile if present
+        if [ -f /usr/share/rudyraindesktop/terminal-profiles/RudyRainOS.json ]; then
+            run_as_user "$REAL_UID" dconf load /org/gnome/terminal/legacy/profiles:/ < /usr/share/rudyraindesktop/terminal-profiles/RudyRainOS.json || true
+        fi
 
-# -------------------------------
-# GNOME Defaults
-# -------------------------------
-gsettings set org.gnome.shell.extensions.dash-to-dock dock-position 'BOTTOM' || true
-gsettings set org.gnome.shell.extensions.dash-to-dock dash-max-icon-size 42 || true
-gsettings set org.gnome.shell.extensions.dash-to-dock autohide true || true
-gsettings set org.gnome.shell.extensions.dash-to-dock intellihide true || true
-gsettings set org.gnome.shell.extensions.dash-to-dock extend-height false || true
-gsettings set org.gnome.shell.extensions.dash-to-dock show-mounts false || true
+        # Enable GNOME extensions safely (only if extension binary is available)
+        if command -v gnome-extensions >/dev/null 2>&1; then
+            run_as_user "$REAL_UID" gnome-extensions enable user-theme@gnome-shell-extensions.gcampax.github.com || true
+            run_as_user "$REAL_UID" gnome-extensions enable appindicatorsupport@rgcjonas.gmail.com || true
+            run_as_user "$REAL_UID" gnome-extensions enable dash-to-dock@micxgx.gmail.com || true
+            run_as_user "$REAL_UID" gnome-extensions enable blur-my-shell@aunetx || true
+            run_as_user "$REAL_UID" gnome-extensions enable rounded-window-corners@yilozt || true
+        fi
 
-gsettings set org.gnome.shell.extensions.blur-my-shell panel-blur true || true
-gsettings set org.gnome.shell.extensions.blur-my-shell dash-blur true || true
-gsettings set org.gnome.shell.extensions.blur-my-shell overview-blur true || true
-gsettings set org.gnome.shell.extensions.blur-my-shell sigma 30 || true
+        # User-level gsettings tweaks
+        run_as_user "$REAL_UID" gsettings set org.gnome.desktop.interface font-name 'Inter 11' || true
+        run_as_user "$REAL_UID" gsettings set org.gnome.desktop.interface monospace-font-name 'JetBrains Mono 11' || true
+        run_as_user "$REAL_UID" gsettings set org.gnome.desktop.peripherals.touchpad tap-to-click true || true
+        run_as_user "$REAL_UID" gsettings set org.gnome.desktop.peripherals.touchpad natural-scroll true || true
+    fi
+else
+    # No real user found; skip user-specific customizations
+    :
+fi
 
-gsettings set org.gnome.shell.extensions.rounded-window-corners corner-radius 12 || true
-gsettings set org.gnome.shell.extensions.rounded-window-corners smoothing true || true
+# System-level actions: only when we appear to be on a real installed system (systemd PID 1)
+if [ "$SKIP_SYSTEM" = false ]; then
+    # Update grub if present
+    if command -v update-grub >/dev/null 2>&1; then
+        update-grub || true
+    fi
 
-gsettings set org.gnome.desktop.interface enable-hot-corners false || true
-gsettings set org.gnome.mutter dynamic-workspaces true || true
-gsettings set org.gnome.mutter workspaces-only-on-primary true || true
+    # Install plymouth alternatives if files exist
+    if [ -f /usr/share/plymouth/themes/rudyrain/rudyrain.plymouth ]; then
+        update-alternatives --install /usr/share/plymouth/themes/default.plymouth default.plymouth /usr/share/plymouth/themes/rudyrain/rudyrain.plymouth 100 || true
+        update-alternatives --set default.plymouth /usr/share/plymouth/themes/rudyrain/rudyrain.plymouth || true
+        update-initramfs -u || true
+    fi
 
-gsettings set org.gnome.desktop.peripherals.touchpad tap-to-click true || true
-gsettings set org.gnome.desktop.peripherals.touchpad natural-scroll true || true
+    # Disable apport safely if present
+    if [ -f /etc/default/apport ]; then
+        sed -i 's/enabled=1/enabled=0/' /etc/default/apport || true
+        if command -v systemctl >/dev/null 2>&1; then
+            systemctl disable apport.service || true
+        fi
+    fi
+fi
 
-gsettings set org.gnome.settings-daemon.plugins.media-keys terminal '<Primary><Alt>t' || true
+# Compile glib schemas if present
+if command -v glib-compile-schemas >/dev/null 2>&1 && [ -d /usr/share/glib-2.0/schemas ]; then
+    glib-compile-schemas /usr/share/glib-2.0/schemas/ || true
+fi
 
-gsettings set org.gnome.system.location enabled false || true
-gsettings set org.gnome.desktop.privacy report-technical-problems false || true
-
-# -------------------------------
-# Default browser
-# -------------------------------
-xdg-settings set default-web-browser brave-browser.desktop || true
-xdg-mime default brave-browser.desktop text/html || true
-xdg-mime default brave-browser.desktop x-scheme-handler/http || true
-xdg-mime default brave-browser.desktop x-scheme-handler/https || true
-
-# -------------------------------
-# Default terminal (Warp)
-# -------------------------------
-gsettings set org.gnome.desktop.default-applications.terminal exec 'warp-terminal' || true
-gsettings set org.gnome.desktop.default-applications.terminal exec-arg '' || true
-xdg-mime default dev.warp.Warp.desktop x-scheme-handler/terminal || true
-
-# -------------------------------
-# Default editor (VS Code)
-# -------------------------------
-xdg-mime default code.desktop text/plain || true
-xdg-mime default code.desktop inode/directory || true
-xdg-mime default code.desktop application/x-shellscript || true
-gsettings set org.gnome.desktop.default-applications.editor exec 'code' || true
-gsettings set org.gnome.desktop.default-applications.editor exec-arg '--new-window' || true
-
-# -------------------------------
-# GRUB Theme
-# -------------------------------
-sed -i 's|^#*GRUB_THEME=.*|GRUB_THEME="/usr/share/grub/themes/rudyrain/theme.txt"|' /etc/default/grub || true
-update-grub || true
-
-# -------------------------------
-# Plymouth Theme
-# -------------------------------
-update-alternatives --install \
-    /usr/share/plymouth/themes/default.plymouth \
-    default.plymouth \
-    /usr/share/plymouth/themes/rudyrain/rudyrain.plymouth 100 || true
-
-update-alternatives --set default.plymouth \
-    /usr/share/plymouth/themes/rudyrain/rudyrain.plymouth || true
-
-update-initramfs -u || true
-
-# -------------------------------
-# System tweaks
-# -------------------------------
-sed -i 's/enabled=1/enabled=0/' /etc/default/apport || true
-systemctl disable apport.service || true
-
-flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo || true
-
-gsettings set org.gnome.desktop.interface font-name 'Inter 11' || true
-gsettings set org.gnome.desktop.interface document-font-name 'Inter 11' || true
-gsettings set org.gnome.desktop.interface monospace-font-name 'JetBrains Mono 11' || true
-gsettings set org.gnome.desktop.interface titlebar-font 'Inter Bold 11' || true
-
-chmod -x /etc/update-motd.d/50-motd-news || true
-
-glib-compile-schemas /usr/share/glib-2.0/schemas/ || true
-
-# -------------------------------
-# GDM Theme Override
-# -------------------------------
+# Ensure grub theme symlink only if file present
 if [ -f /usr/share/gnome-shell/theme/RudyRainOS-gdm.css ]; then
-    ln -sf /usr/share/gnome-shell/theme/RudyRainOS-gdm.css \
-          /usr/share/gnome-shell/theme/gdm3.css
-    chmod 644 /usr/share/gnome-shell/theme/RudyRainOS-gdm.css
+    ln -sf /usr/share/gnome-shell/theme/RudyRainOS-gdm.css /usr/share/gnome-shell/theme/gdm3.css || true
+    chmod 644 /usr/share/gnome-shell/theme/RudyRainOS-gdm.css || true
 fi
 
-# -------------------------------
-# RudyRainOS Boot Staging
-# -------------------------------
-if [ -f /usr/lib/rudyraindesktop/generate-boot-overrides.sh ]; then
-    bash /usr/lib/rudyraindesktop/generate-boot-overrides.sh || true
+# Run any bundled boot overrides generator if present
+if [ -x /usr/lib/rudyraindesktop/generate-boot-overrides.sh ]; then
+    /usr/lib/rudyraindesktop/generate-boot-overrides.sh || true
 fi
 
+# End
 exit 0
