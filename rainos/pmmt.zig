@@ -20,6 +20,70 @@ pub const SearchResult = struct {
     description: []u8,
 };
 
+fn writeOut(s: []const u8) void {
+    _ = posix.write(posix.STDOUT_FILENO, s) catch {};
+}
+
+fn writeErr(s: []const u8) void {
+    _ = posix.write(posix.STDERR_FILENO, s) catch {};
+}
+
+fn Vec(comptime T: type) type {
+    return struct {
+        allocator: std.mem.Allocator,
+        items: []T,
+        len: usize,
+
+        fn init(allocator: std.mem.Allocator) @This() {
+            return .{
+                .allocator = allocator,
+                .items = &[_]T{},
+                .len = 0,
+            };
+        }
+
+        fn deinit(self: *@This()) void {
+            if (self.items.len > 0) {
+                self.allocator.free(self.items);
+            }
+        }
+
+        fn append(self: *@This(), value: T) !void {
+            if (self.len == self.items.len) {
+                const new_cap: usize = if (self.items.len == 0) 4 else self.items.len * 2;
+                var new = try self.allocator.alloc(T, new_cap);
+                if (self.items.len > 0) {
+                    var i: usize = 0;
+                    while (i < self.len) : (i += 1) {
+                        new[i] = self.items[i];
+                    }
+                    self.allocator.free(self.items);
+                }
+                self.items = new;
+            }
+            self.items[self.len] = value;
+            self.len += 1;
+        }
+
+        fn appendSlice(self: *@This(), slice: []const T) !void {
+            var i: usize = 0;
+            while (i < slice.len) : (i += 1) {
+                try self.append(slice[i]);
+            }
+        }
+
+        fn toOwnedSlice(self: *@This()) ![]T {
+            const out = try self.allocator.alloc(T, self.len);
+            var i: usize = 0;
+            while (i < self.len) : (i += 1) {
+                out[i] = self.items[i];
+            }
+            self.deinit();
+            return out;
+        }
+    };
+}
+
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
@@ -29,7 +93,7 @@ pub fn main() !void {
     defer std.process.argsFree(allocator, args);
 
     if (args.len < 2) {
-        try printUsage();
+        printUsage();
         return;
     }
 
@@ -38,14 +102,15 @@ pub fn main() !void {
     if (std.mem.eql(u8, subcmd, "install")) {
         try cmdInstall(allocator, args[2..]);
     } else {
-        try std.io.getStdErr().writer().print("pmmt: unknown command '{s}'\n", .{subcmd});
-        try printUsage();
+        writeErr("pmmt: unknown command '");
+        writeErr(subcmd);
+        writeErr("'\n");
+        printUsage();
     }
 }
 
-fn printUsage() !void {
-    const w = std.io.getStdOut().writer();
-    try w.print(
+fn printUsage() void {
+    writeOut(
         \\Usage:
         \\  pmmt install [--that] [--auto] <package>
         \\
@@ -53,12 +118,12 @@ fn printUsage() !void {
         \\  --that   Use backend's native UI (raw output)
         \\  --auto   No UI, non-interactive
         \\
-    , .{});
+    );
 }
 
-fn cmdInstall(allocator: std.mem.Allocator, args: [][]u8) !void {
+fn cmdInstall(allocator: std.mem.Allocator, args: []const [:0]u8) !void {
     if (args.len == 0) {
-        try std.io.getStdErr().writer().print("pmmt install: missing package name\n", .{});
+        writeErr("pmmt install: missing package name\n");
         return;
     }
 
@@ -76,13 +141,15 @@ fn cmdInstall(allocator: std.mem.Allocator, args: [][]u8) !void {
         } else if (pkg_name == null) {
             pkg_name = arg;
         } else {
-            try std.io.getStdErr().writer().print("pmmt install: unexpected argument '{s}'\n", .{arg});
+            writeErr("pmmt install: unexpected argument '");
+            writeErr(arg);
+            writeErr("'\n");
             return;
         }
     }
 
     if (pkg_name == null) {
-        try std.io.getStdErr().writer().print("pmmt install: missing package name\n", .{});
+        writeErr("pmmt install: missing package name\n");
         return;
     }
 
@@ -95,15 +162,17 @@ fn cmdInstall(allocator: std.mem.Allocator, args: [][]u8) !void {
     }
 
     if (backends.len == 0) {
-        try std.io.getStdErr().writer().print("pmmt: no package managers configured in PM.list\n", .{});
+        writeErr("pmmt: no package managers configured in PM.list\n");
         return;
     }
 
     if (!use_auto) {
-        try std.io.getStdOut().writer().print("🌧️  Searching for \"{s}\"…\n", .{pkg_name.?});
+        writeOut("🌧️  Searching for \"");
+        writeOut(pkg_name.?);
+        writeOut("\"…\n");
     }
 
-    var results = try searchAllBackends(allocator, backends, pkg_name.?);
+    const results = try searchAllBackends(allocator, backends, pkg_name.?);
     defer {
         for (results) |r| {
             allocator.free(r.id);
@@ -114,10 +183,9 @@ fn cmdInstall(allocator: std.mem.Allocator, args: [][]u8) !void {
     }
 
     if (results.len == 0) {
-        try std.io.getStdOut().writer().print(
-            "pmmt: No results found for '{s}' in any configured package manager.\n",
-            .{pkg_name.?},
-        );
+        writeOut("pmmt: No results found for '");
+        writeOut(pkg_name.?);
+        writeOut("' in any configured package manager.\n");
         return;
     }
 
@@ -126,28 +194,34 @@ fn cmdInstall(allocator: std.mem.Allocator, args: [][]u8) !void {
     if (results.len == 1 or use_auto) {
         chosen_index = 0;
         if (!use_auto) {
-            try std.io.getStdOut().writer().print(
+            var buf: [256]u8 = undefined;
+            const line = std.fmt.bufPrint(
+                &buf,
                 "🔍  Found in {s}: {s}\n",
                 .{ backendName(results[0].backend.kind), results[0].id },
-            );
+            ) catch "";
+            writeOut(line);
         }
     } else {
-        chosen_index = try selectResultInteractive(allocator, results);
+        chosen_index = try selectResultInteractive(results);
     }
 
     const chosen = results[chosen_index];
 
     if (!use_auto) {
-        try std.io.getStdOut().writer().print(
+        var buf: [128]u8 = undefined;
+        const line = std.fmt.bufPrint(
+            &buf,
             "⬇️  Installing from {s}…\n",
             .{backendName(chosen.backend.kind)},
-        );
+        ) catch "";
+        writeOut(line);
     }
 
     try installPackage(allocator, chosen, use_that, use_auto);
 
     if (!use_auto) {
-        try std.io.getStdOut().writer().print("✨  Done!\n", .{});
+        writeOut("✨  Done!\n");
     }
 }
 
@@ -161,15 +235,40 @@ fn backendName(kind: BackendKind) []const u8 {
 }
 
 fn loadBackends(allocator: std.mem.Allocator) ![]Backend {
-    var list = std.ArrayList(Backend).init(allocator);
+    var list = Vec(Backend).init(allocator);
 
     const home = std.process.getEnvVarOwned(allocator, "HOME") catch null;
     if (home) |h| {
         defer allocator.free(h);
-        var buf = std.ArrayList(u8).init(allocator);
+
+        var buf = Vec(u8).init(allocator);
         defer buf.deinit();
-        try buf.writer().print("{s}/.rainoscli/PM.list", .{h});
-        const path = buf.items;
+
+        // build path: "$HOME/.rainoscli/PM.list"
+        try buf.appendSlice(h);
+        try buf.append('/');
+
+        try buf.append('.');
+        try buf.append('r');
+        try buf.append('a');
+        try buf.append('i');
+        try buf.append('n');
+        try buf.append('o');
+        try buf.append('s');
+        try buf.append('c');
+        try buf.append('l');
+        try buf.append('i');
+        try buf.append('/');
+
+        try buf.append('P');
+        try buf.append('M');
+        try buf.append('.');
+        try buf.append('l');
+        try buf.append('i');
+        try buf.append('s');
+        try buf.append('t');
+
+        const path = buf.items[0..buf.len];
 
         loadBackendsFromFile(allocator, path, &list) catch {};
     }
@@ -182,12 +281,12 @@ fn loadBackends(allocator: std.mem.Allocator) ![]Backend {
 fn loadBackendsFromFile(
     allocator: std.mem.Allocator,
     path: []const u8,
-    list: *std.ArrayList(Backend),
+    list: *Vec(Backend),
 ) !void {
     var file = std.fs.openFileAbsolute(path, .{}) catch return;
     defer file.close();
 
-    var reader = file.reader();
+    var reader = file.deprecatedReader();
 
     while (true) {
         const line_opt = try reader.readUntilDelimiterOrEofAlloc(allocator, '\n', 4096);
@@ -198,7 +297,6 @@ fn loadBackendsFromFile(
         const trimmed = std.mem.trim(u8, line, " \t\r\n");
         if (trimmed.len == 0 or trimmed[0] == '#') continue;
 
-        // verify executable exists
         if (std.fs.openFileAbsolute(trimmed, .{})) |f| {
             f.close();
         } else |_| {
@@ -228,10 +326,10 @@ fn searchAllBackends(
     backends: []Backend,
     pkg: []const u8,
 ) ![]SearchResult {
-    var list = std.ArrayList(SearchResult).init(allocator);
+    var list = Vec(SearchResult).init(allocator);
 
     for (backends) |b| {
-        var results = searchBackend(allocator, b, pkg) catch {
+        const results = searchBackend(allocator, b, pkg) catch {
             continue;
         };
         defer {
@@ -242,7 +340,9 @@ fn searchAllBackends(
             }
             allocator.free(results);
         }
-        for (results) |r| {
+        var i: usize = 0;
+        while (i < results.len) : (i += 1) {
+            const r = results[i];
             try list.append(.{
                 .backend = b,
                 .id = try allocator.dupe(u8, r.id),
@@ -278,21 +378,29 @@ fn spawnCapture(allocator: std.mem.Allocator, argv: []const []const u8) ![]u8 {
     const stdout_file = child.stdout.?;
     defer stdout_file.close();
 
-    var buf = std.ArrayList(u8).init(allocator);
+    var buf = Vec(u8).init(allocator);
     defer buf.deinit();
 
-    var reader = stdout_file.reader();
+    var reader = stdout_file.deprecatedReader();
     var tmp: [1024]u8 = undefined;
 
     while (true) {
-        const n = try reader.read(&tmp);
+        const n = reader.read(&tmp) catch break;
         if (n == 0) break;
-        try buf.appendSlice(tmp[0..n]);
+        var i: usize = 0;
+        while (i < n) : (i += 1) {
+            try buf.append(tmp[i]);
+        }
     }
 
     _ = try child.wait();
 
-    return buf.toOwnedSlice();
+    const out = try allocator.alloc(u8, buf.len);
+    var i: usize = 0;
+    while (i < buf.len) : (i += 1) {
+        out[i] = buf.items[i];
+    }
+    return out;
 }
 
 fn searchApt(
@@ -309,7 +417,7 @@ fn searchApt(
     const output = try spawnCapture(allocator, &argv);
     defer allocator.free(output);
 
-    var list = std.ArrayList(SearchResult).init(allocator);
+    var list = Vec(SearchResult).init(allocator);
 
     var it = std.mem.tokenizeScalar(u8, output, '\n');
     while (it.next()) |line| {
@@ -349,7 +457,7 @@ fn searchFlatpak(
     const output = try spawnCapture(allocator, &argv);
     defer allocator.free(output);
 
-    var list = std.ArrayList(SearchResult).init(allocator);
+    var list = Vec(SearchResult).init(allocator);
 
     var it = std.mem.tokenizeScalar(u8, output, '\n');
     while (it.next()) |line| {
@@ -357,7 +465,6 @@ fn searchFlatpak(
         if (trimmed.len == 0) continue;
         if (std.mem.startsWith(u8, trimmed, "Ref")) continue; // header
 
-        // naive parse: first column is app id, rest is description
         const id_end = std.mem.indexOfScalar(u8, trimmed, ' ') orelse continue;
         const id_slice = std.mem.trim(u8, trimmed[0..id_end], " \t");
         const rest = std.mem.trim(u8, trimmed[id_end..], " \t");
@@ -391,7 +498,7 @@ fn searchSnap(
     const output = try spawnCapture(allocator, &argv);
     defer allocator.free(output);
 
-    var list = std.ArrayList(SearchResult).init(allocator);
+    var list = Vec(SearchResult).init(allocator);
 
     var it = std.mem.tokenizeScalar(u8, output, '\n');
     var first = true;
@@ -403,7 +510,6 @@ fn searchSnap(
         const trimmed = std.mem.trim(u8, line, " \t\r");
         if (trimmed.len == 0) continue;
 
-        // snap find: name  version  publisher  notes  summary
         var tok = std.mem.tokenizeScalar(u8, trimmed, ' ');
         const name_tok = tok.next() orelse continue;
         const name = std.mem.trim(u8, name_tok, " \t");
@@ -426,59 +532,37 @@ fn searchSnap(
     return list.toOwnedSlice();
 }
 
-fn selectResultInteractive(
-    allocator: std.mem.Allocator,
-    results: []SearchResult,
-) !usize {
-    const stdout = std.io.getStdOut().writer();
-    const stdin_fd = std.io.getStdIn().handle;
+fn selectResultInteractive(results: []SearchResult) !usize {
+    writeOut("Multiple matches found:\n\n");
 
-    // Put terminal in raw mode to capture arrows
-    var termios = try posix.tcgetattr(stdin_fd);
-    const old_termios = termios;
-    termios.lflag &= ~@as(posix.tcflag_t, posix.ICANON | posix.ECHO);
-    try posix.tcsetattr(stdin_fd, posix.TCSANOW, termios);
-    defer {
-        _ = posix.tcsetattr(stdin_fd, posix.TCSANOW, old_termios) catch {};
+    var idx: usize = 0;
+    var buf: [512]u8 = undefined;
+    while (idx < results.len) : (idx += 1) {
+        const line = std.fmt.bufPrint(
+            &buf,
+            "{d}) [{s}] {s} – {s}\n",
+            .{
+                idx + 1,
+                backendName(results[idx].backend.kind),
+                results[idx].display_name,
+                results[idx].description,
+            },
+        ) catch "";
+        writeOut(line);
     }
 
-    var selected: usize = 0;
+    writeOut("\nEnter choice (number): ");
 
-    while (true) {
-        // clear screen
-        try stdout.print("\x1b[2J\x1b[H", .{});
-        try stdout.print("Multiple matches found. Use ↑/↓ and Enter to choose:\n\n", .{});
+    var in_buf: [32]u8 = undefined;
+    const n = posix.read(posix.STDIN_FILENO, &in_buf) catch 0;
+    if (n == 0) return 0;
 
-        var idx: usize = 0;
-        while (idx < results.len) : (idx += 1) {
-            const prefix = if (idx == selected) "➤" else " ";
-            try stdout.print(
-                "{s} [{s}] {s} – {s}\n",
-                .{
-                    prefix,
-                    backendName(results[idx].backend.kind),
-                    results[idx].display_name,
-                    results[idx].description,
-                },
-            );
-        }
+    const trimmed = std.mem.trim(u8, in_buf[0..n], " \t\r\n");
+    const choice = std.fmt.parseInt(usize, trimmed, 10) catch return 0;
 
-        var buf: [3]u8 = undefined;
-        const n = try posix.read(stdin_fd, &buf);
-        if (n == 0) continue;
+    if (choice == 0 or choice > results.len) return 0;
 
-        if (buf[0] == '\n' or buf[0] == '\r') {
-            break;
-        } else if (buf[0] == 0x1b and n >= 3 and buf[1] == '[') {
-            if (buf[2] == 'A') {
-                if (selected > 0) selected -= 1;
-            } else if (buf[2] == 'B') {
-                if (selected + 1 < results.len) selected += 1;
-            }
-        }
-    }
-
-    return selected;
+    return choice - 1;
 }
 
 fn installPackage(
@@ -492,10 +576,9 @@ fn installPackage(
         .flatpak => try installFlatpak(allocator, res, use_that, use_auto),
         .snap => try installSnap(allocator, res, use_that, use_auto),
         .unknown => {
-            try std.io.getStdErr().writer().print(
-                "pmmt: Unknown backend for '{s}'\n",
-                .{res.id},
-            );
+            writeErr("pmmt: Unknown backend for '");
+            writeErr(res.id);
+            writeErr("'\n");
         },
     }
 }
@@ -517,8 +600,6 @@ fn spawnBackend(
         child.stdout_behavior = .Inherit;
         child.stderr_behavior = .Inherit;
     } else {
-        // default: inherit stdout/stderr so backend progress is visible,
-        // but we can still print our own messages before/after.
         child.stdin_behavior = .Inherit;
         child.stdout_behavior = .Inherit;
         child.stderr_behavior = .Inherit;
@@ -528,17 +609,17 @@ fn spawnBackend(
     switch (term) {
         .Exited => |code| {
             if (code != 0) {
-                try std.io.getStdErr().writer().print(
+                var buf: [128]u8 = undefined;
+                const line = std.fmt.bufPrint(
+                    &buf,
                     "pmmt: backend exited with status {d}\n",
                     .{code},
-                );
+                ) catch "";
+                writeErr(line);
             }
         },
         else => {
-            try std.io.getStdErr().writer().print(
-                "pmmt: backend terminated abnormally\n",
-                .{},
-            );
+            writeErr("pmmt: backend terminated abnormally\n");
         },
     }
 }
@@ -549,7 +630,6 @@ fn installApt(
     use_that: bool,
     use_auto: bool,
 ) !void {
-    // apt needs root → use execas
     var argv = [_][]const u8{
         "execas",
         "-usr=root",
@@ -580,7 +660,6 @@ fn installSnap(
     use_that: bool,
     use_auto: bool,
 ) !void {
-    // snap usually requires root → use execas
     var argv = [_][]const u8{
         "execas",
         "-usr=root",
