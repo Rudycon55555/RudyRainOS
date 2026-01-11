@@ -7,6 +7,14 @@ const InspectError = error{
     InvalidLiveValue,
 };
 
+fn writeOut(s: []const u8) void {
+    _ = posix.write(posix.STDOUT_FILENO, s) catch {};
+}
+
+fn writeErr(s: []const u8) void {
+    _ = posix.write(posix.STDERR_FILENO, s) catch {};
+}
+
 const ProcessInfo = struct {
     pid: i32,
     name: []u8,
@@ -15,6 +23,12 @@ const ProcessInfo = struct {
     cpu_time_ticks: u64,
     rss_kb: u64,
     state: u8,
+
+    fn deinit(self: *ProcessInfo, allocator: std.mem.Allocator) void {
+        allocator.free(self.name);
+        allocator.free(self.cmdline);
+        allocator.free(self.user);
+    }
 };
 
 pub fn main() !void {
@@ -26,7 +40,7 @@ pub fn main() !void {
     defer std.process.argsFree(allocator, args);
 
     if (args.len < 2) {
-        try printUsage();
+        printUsage();
         return;
     }
 
@@ -42,8 +56,8 @@ pub fn main() !void {
             human = true;
         } else if (std.mem.startsWith(u8, arg, "--live=")) {
             const val = arg["--live=".len..];
-            live_ms = try std.fmt.parseInt(u64, val, 10) catch {
-                try std.io.getStdErr().writer().print("inspect: invalid --live value\n", .{});
+            live_ms = std.fmt.parseInt(u64, val, 10) catch {
+                writeErr("inspect: invalid --live value\n");
                 return InspectError.InvalidLiveValue;
             };
         } else if (std.mem.eql(u8, arg, "--control")) {
@@ -51,99 +65,89 @@ pub fn main() !void {
         } else if (target == null) {
             target = arg;
         } else {
-            try std.io.getStdErr().writer().print("inspect: unexpected argument: {s}\n", .{arg});
+            writeErr("inspect: unexpected argument\n");
             return;
         }
     }
 
     if (target == null) {
-        try printUsage();
+        printUsage();
         return InspectError.NoTarget;
     }
 
     const pid = try resolveTargetToPid(allocator, target.?);
-    var info = try readProcessInfo(allocator, pid);
-    defer allocator.free(info.name);
-    defer allocator.free(info.cmdline);
-    defer allocator.free(info.user);
 
     if (live_ms) |duration_ms| {
         try liveInspect(allocator, pid, human, duration_ms);
     } else {
+        var info = try readProcessInfo(allocator, pid);
+        defer info.deinit(allocator);
         if (human) {
-            try printHumanInfo(&info);
+            printHumanInfo(&info);
         } else {
-            try printRawInfo(&info);
+            printRawInfo(&info);
         }
     }
 
-    if (control) {
-        try controlProcess(allocator, pid);
-    }
+    if (control) try controlProcess(allocator, pid);
 }
 
-fn printUsage() !void {
-    const w = std.io.getStdOut().writer();
-    try w.print(
-        \\Usage: inspect [--human] [--live=MS] [--control] <pid|name>
-        \\
-        \\  --human       Show human-friendly interpretation
-        \\  --live=MS     Refresh every MS milliseconds for a short period
-        \\  --control     Interactively control (kill/stop/cont/term/renice)
-        \\
-    , .{});
+fn printUsage() void {
+    writeOut("Usage: inspect [--human] [--live=MS] [--control] <pid|name>\n");
 }
 
 fn resolveTargetToPid(allocator: std.mem.Allocator, target: []const u8) !i32 {
-    // If numeric, treat as PID
-    if (std.fmt.parseInt(i32, target, 10)) |pid| {
-        return pid;
-    } else |_| {}
+    const parsed_pid = std.fmt.parseInt(i32, target, 10) catch null;
+    if (parsed_pid) |pid| return pid;
 
-    // Otherwise, search /proc by name
     var dir = try std.fs.openDirAbsolute("/proc", .{ .iterate = true });
     defer dir.close();
 
     var it = dir.iterate();
     while (try it.next()) |entry| {
         if (entry.kind != .directory) continue;
-        if (!isAllDigits(entry.name)) continue;
 
         const pid = std.fmt.parseInt(i32, entry.name, 10) catch continue;
 
         const name = readProcComm(allocator, pid) catch continue;
         defer allocator.free(name);
 
-        if (std.mem.indexOf(u8, name, target) != null) {
-            return pid;
-        }
+        if (std.mem.indexOf(u8, name, target) != null) return pid;
     }
 
-    try std.io.getStdErr().writer().print("inspect: no process found matching '{s}'\n", .{target});
+    writeErr("inspect: no matching process\n");
     return InspectError.NotFound;
 }
 
-fn isAllDigits(s: []const u8) bool {
-    for (s) |c| {
-        if (c < '0' or c > '9') return false;
-    }
-    return true;
-}
-
 fn readProcComm(allocator: std.mem.Allocator, pid: i32) ![]u8 {
-    var buf: [64]u8 = undefined;
-    const path = try std.fmt.bufPrint(&buf, "/proc/{d}/comm", .{pid});
-    var file = try std.fs.openFileAbsolute(path, .{});
+    var path_buf: [64]u8 = undefined;
+    const path = try std.fmt.bufPrint(&path_buf, "/proc/{d}/comm", .{pid});
+    const file = try std.fs.openFileAbsolute(path, .{});
     defer file.close();
-    return try file.readToEndAlloc(allocator, 64);
+
+    var content = try file.readToEndAlloc(allocator, 256);
+
+    var end = content.len;
+    while (end > 0) {
+        const c = content[end - 1];
+        if (c == '\n' or c == '\r' or c == ' ' or c == 0) {
+            end -= 1;
+        } else break;
+    }
+
+    return content[0..end];
 }
 
 fn readProcessInfo(allocator: std.mem.Allocator, pid: i32) !ProcessInfo {
-    var name = try readProcComm(allocator, pid);
-    stripNewline(name);
+    const name = try readProcComm(allocator, pid);
+    errdefer allocator.free(name);
 
-    var cmdline = try readProcCmdline(allocator, pid);
-    var user = try getProcessUser(allocator, pid);
+    const cmdline = try readProcCmdline(allocator, pid);
+    errdefer allocator.free(cmdline);
+
+    const user = try getProcessUser(allocator, pid);
+    errdefer allocator.free(user);
+
     const stat = try readProcStat(pid);
 
     return ProcessInfo{
@@ -157,272 +161,176 @@ fn readProcessInfo(allocator: std.mem.Allocator, pid: i32) !ProcessInfo {
     };
 }
 
-fn stripNewline(buf: []u8) void {
-    if (buf.len == 0) return;
-    if (buf[buf.len - 1] == '\n') buf[buf.len - 1] = 0;
-}
-
 fn readProcCmdline(allocator: std.mem.Allocator, pid: i32) ![]u8 {
-    var buf: [64]u8 = undefined;
-    const path = try std.fmt.bufPrint(&buf, "/proc/{d}/cmdline", .{pid});
-    var file = try std.fs.openFileAbsolute(path, .{});
+    var path_buf: [64]u8 = undefined;
+    const path = try std.fmt.bufPrint(&path_buf, "/proc/{d}/cmdline", .{pid});
+    const file = try std.fs.openFileAbsolute(path, .{});
     defer file.close();
+
     var raw = try file.readToEndAlloc(allocator, 4096);
-    // Replace NULs with spaces
-    for (raw) |*b| {
-        if (b.* == 0) b.* = ' ';
+
+    if (raw.len > 0) {
+        if (raw.len > 1) {
+            for (raw[0 .. raw.len - 1], 0..) |b, i| {
+                if (b == 0) raw[i] = ' ';
+            }
+        }
+        var end = raw.len;
+        while (end > 0 and raw[end - 1] == 0) {
+            end -= 1;
+        }
+        return raw[0..end];
     }
+
     return raw;
 }
 
 fn getProcessUser(allocator: std.mem.Allocator, pid: i32) ![]u8 {
-    var buf: [64]u8 = undefined;
-    const path = try std.fmt.bufPrint(&buf, "/proc/{d}/status", .{pid});
-    var file = try std.fs.openFileAbsolute(path, .{});
+    var path_buf: [64]u8 = undefined;
+    const path = try std.fmt.bufPrint(&path_buf, "/proc/{d}/status", .{pid});
+    const file = try std.fs.openFileAbsolute(path, .{});
     defer file.close();
 
-    var reader = file.reader();
-    var line_buf = std.ArrayList(u8).init(allocator);
-    defer line_buf.deinit();
+    var reader = file.deprecatedReader();
 
     while (true) {
-        line_buf.clearRetainingCapacity();
-        const line_opt = try reader.readUntilDelimiterOrEofAlloc(allocator, '\n', 256);
-        if (line_opt == null) break;
-        const line = line_opt.?;
+        const line = try reader.readUntilDelimiterOrEofAlloc(allocator, '\n', 512) orelse break;
         defer allocator.free(line);
 
         if (std.mem.startsWith(u8, line, "Uid:")) {
-            var it = std.mem.tokenizeScalar(u8, line[4..], '\t');
-            const uid_str = it.next() orelse continue;
-            const uid = std.fmt.parseInt(u32, std.mem.trim(u8, uid_str, " \t"), 10) catch continue;
-            return try uidToName(allocator, uid);
+            var it = std.mem.tokenizeAny(u8, line, " \t");
+            _ = it.next(); // "Uid:"
+            if (it.next()) |uid_val| {
+                return try allocator.dupe(u8, uid_val);
+            }
         }
     }
 
-    return allocator.dupe(u8, "unknown");
+    return try allocator.dupe(u8, "unknown");
 }
 
-fn uidToName(allocator: std.mem.Allocator, uid: u32) ![]u8 {
-    var buf: [std.posix._SC_GETPW_R_SIZE_MAX]u8 = undefined;
-    var pwd: posix.passwd = undefined;
-    var result: ?*posix.passwd = null;
-
-    const rc = posix.getpwuid_r(@intCast(uid), &pwd, &buf, &result);
-    if (rc != 0 or result == null) return allocator.dupe(u8, "unknown");
-    return allocator.dupe(u8, std.mem.span(pwd.pw_name));
-}
-
-const StatInfo = struct {
-    cpu_ticks: u64,
-    rss_kb: u64,
-    state: u8,
-};
-
-fn readProcStat(pid: i32) !StatInfo {
-    var buf: [64]u8 = undefined;
-    const path = try std.fmt.bufPrint(&buf, "/proc/{d}/stat", .{pid});
-    var file = try std.fs.openFileAbsolute(path, .{});
+fn readProcStat(pid: i32) !struct { cpu_ticks: u64, rss_kb: u64, state: u8 } {
+    var path_buf: [64]u8 = undefined;
+    const path = try std.fmt.bufPrint(&path_buf, "/proc/{d}/stat", .{pid});
+    const file = try std.fs.openFileAbsolute(path, .{});
     defer file.close();
 
-    var data = try file.readToEndAlloc(std.heap.page_allocator, 512);
-    defer std.heap.page_allocator.free(data);
+    var stat_buf: [1024]u8 = undefined;
+    const amt = try file.readAll(&stat_buf);
+    const data = stat_buf[0..amt];
 
-    var it = std.mem.tokenizeScalar(u8, data, ' ');
-    var idx: usize = 0;
-    var state: u8 = ' ';
+    const last_paren = std.mem.lastIndexOfScalar(u8, data, ')') orelse return error.InvalidData;
+    const rest = data[last_paren + 1 ..];
+
+    var it = std.mem.tokenizeScalar(u8, rest, ' ');
+
+    const state_tok = it.next() orelse " ";
+    const state = state_tok[0];
+
+    var i: usize = 0;
     var utime: u64 = 0;
     var stime: u64 = 0;
-    var rss_pages: i64 = 0;
+    var rss_pages: u64 = 0;
 
-    while (it.next()) |tok| : (idx += 1) {
-        switch (idx) {
-            2 => state = tok[0],
-            13 => utime = std.fmt.parseInt(u64, tok, 10) catch 0,
-            14 => stime = std.fmt.parseInt(u64, tok, 10) catch 0,
-            23 => rss_pages = std.fmt.parseInt(i64, tok, 10) catch 0,
+    while (it.next()) |tok| : (i += 1) {
+        switch (i) {
+            10 => utime = std.fmt.parseInt(u64, tok, 10) catch 0,
+            11 => stime = std.fmt.parseInt(u64, tok, 10) catch 0,
+            20 => rss_pages = std.fmt.parseInt(u64, tok, 10) catch 0,
             else => {},
         }
     }
 
-    const page_size = std.mem.page_size;
-    const rss_kb: u64 = if (rss_pages > 0) @intCast(@as(u64, @intCast(rss_pages)) * (page_size / 1024)) else 0;
+    const rss_kb: u64 = rss_pages * 4;
 
-    return StatInfo{
+    return .{
         .cpu_ticks = utime + stime,
         .rss_kb = rss_kb,
         .state = state,
     };
 }
 
-fn printRawInfo(info: *const ProcessInfo) !void {
-    const w = std.io.getStdOut().writer();
-    try w.print("PID: {d}\n", .{info.pid});
-    try w.print("User: {s}\n", .{info.user});
-    try w.print("Name: {s}\n", .{info.name});
-    try w.print("Cmd: {s}\n", .{info.cmdline});
-    try w.print("CPU ticks: {d}\n", .{info.cpu_time_ticks});
-    try w.print("RSS: {d} KB\n", .{info.rss_kb});
-    try w.print("State: {c}\n", .{info.state});
+fn printRawInfo(info: *const ProcessInfo) void {
+    var buf: [128]u8 = undefined;
+    writeOut("--- PROCESS INFO ---\n");
+    writeOut(std.fmt.bufPrint(&buf, "PID: {d}\n", .{info.pid}) catch "");
+    writeOut("Name: "); writeOut(info.name); writeOut("\n");
+    writeOut("User (UID): "); writeOut(info.user); writeOut("\n");
+    writeOut("State: "); writeOut(&[_]u8{info.state}); writeOut("\n");
+    writeOut(std.fmt.bufPrint(&buf, "RSS: {d} KB\n", .{info.rss_kb}) catch "");
+    writeOut("Cmd: "); writeOut(info.cmdline); writeOut("\n");
 }
 
-fn printHumanInfo(info: *const ProcessInfo) !void {
-    const w = std.io.getStdOut().writer();
-    try w.print("Process {s} (PID {d})\n", .{info.name, info.pid});
-    try w.print("  Owner: {s}\n", .{info.user});
-    try w.print("  Command: {s}\n", .{info.cmdline});
-    try w.print("  Memory: {d} KB ({s})\n", .{
-        info.rss_kb,
-        classifyMemory(info.rss_kb),
-    });
-    try w.print("  CPU time (ticks): {d}\n", .{info.cpu_time_ticks});
-    try w.print("  State: {s}\n", .{describeState(info.state)});
-}
-
-fn classifyMemory(rss_kb: u64) []const u8 {
-    if (rss_kb < 50_000) return "very light";
-    if (rss_kb < 200_000) return "normal";
-    if (rss_kb < 500_000) return "heavy";
-    return "very heavy";
-}
-
-fn describeState(state: u8) []const u8 {
-    return switch (state) {
-        'R' => "Running",
-        'S' => "Sleeping",
-        'D' => "Uninterruptible sleep",
-        'Z' => "Zombie",
-        'T' => "Stopped",
-        't' => "Tracing stop",
-        'X', 'x' => "Dead",
-        else => "Unknown",
-    };
+fn printHumanInfo(info: *const ProcessInfo) void {
+    // For now, reuse raw output.
+    printRawInfo(info);
 }
 
 fn liveInspect(allocator: std.mem.Allocator, pid: i32, human: bool, duration_ms: u64) !void {
     const start = std.time.milliTimestamp();
     while (true) {
-        var info = readProcessInfo(allocator, pid) catch |e| {
-            try std.io.getStdErr().writer().print("inspect: failed to read process: {s}\n", .{@errorName(e)});
-            return;
-        };
-        defer allocator.free(info.name);
-        defer allocator.free(info.cmdline);
-        defer allocator.free(info.user);
+        var info = try readProcessInfo(allocator, pid);
+        defer info.deinit(allocator);
 
-        std.io.getStdOut().writer().print("\x1b[2J\x1b[H", .{}) catch {};
+        writeOut("\x1b[2J\x1b[H");
         if (human) {
-            try printHumanInfo(&info);
+            printHumanInfo(&info);
         } else {
-            try printRawInfo(&info);
+            printRawInfo(&info);
         }
 
         const now = std.time.milliTimestamp();
         if (now - start >= duration_ms) break;
-        std.time.sleep(100 * std.time.millisecond);
+
+        const target = now + 200;
+        while (std.time.milliTimestamp() < target) {
+            // busy-wait; no portable sleep API in this hybrid stdlib
+        }
     }
 }
 
 fn controlProcess(allocator: std.mem.Allocator, pid: i32) !void {
-    const w = std.io.getStdOut().writer();
-    try w.print(
-        \\Control options:
-        \\  k - kill (SIGKILL)
-        \\  t - terminate (SIGTERM)
-        \\  s - stop (SIGSTOP)
-        \\  c - continue (SIGCONT)
-        \\  n - renice
-        \\Choose action: 
-    , .{});
+    writeOut("\nControl: [k]ill [t]erm [s]top [c]ont [n]ice: ");
+    var in_buf: [16]u8 = undefined;
+    const n = posix.read(posix.STDIN_FILENO, &in_buf) catch return;
+    if (n == 0) return;
 
-    var buf: [8]u8 = undefined;
-    const r = std.io.getStdIn().reader();
-    const len_opt = try r.readUntilDelimiterOrEof(&buf, '\n');
-    if (len_opt == null or len_opt.? == 0) return;
-    const choice = buf[0];
-
-    switch (choice) {
-        'k' => try sendSignal(allocator, pid, posix.SIGKILL),
-        't' => try sendSignal(allocator, pid, posix.SIGTERM),
-        's' => try sendSignal(allocator, pid, posix.SIGSTOP),
-        'c' => try sendSignal(allocator, pid, posix.SIGCONT),
+    switch (in_buf[0]) {
+        'k' => _ = posix.kill(pid, posix.SIG.KILL) catch {},
+        't' => _ = posix.kill(pid, posix.SIG.TERM) catch {},
+        's' => _ = posix.kill(pid, posix.SIG.STOP) catch {},
+        'c' => _ = posix.kill(pid, posix.SIG.CONT) catch {},
         'n' => try reniceProcess(allocator, pid),
-        else => {},
+        else => writeOut("Invalid option.\n"),
     }
-}
-
-fn sendSignal(allocator: std.mem.Allocator, pid: i32, sig: i32) !void {
-    const uid = posix.getuid();
-    if (uid == 0) {
-        _ = posix.kill(pid, sig);
-        return;
-    }
-
-    // Use execas to send signal as root
-    var argv = [_][]const u8{
-        "execas",
-        "-usr=root",
-        "kill",
-        "-s",
-        undefined,
-        undefined,
-    };
-
-    var sig_buf: [8]u8 = undefined;
-    const sig_str = switch (sig) {
-        posix.SIGKILL => "KILL",
-        posix.SIGTERM => "TERM",
-        posix.SIGSTOP => "STOP",
-        posix.SIGCONT => "CONT",
-        else => "TERM",
-    };
-    argv[4] = sig_str;
-
-    const pid_str = try std.fmt.bufPrint(&sig_buf, "{d}", .{pid});
-    argv[5] = pid_str;
-
-    var child = std.process.Child.init(&argv, allocator);
-    _ = try child.spawnAndWait();
 }
 
 fn reniceProcess(allocator: std.mem.Allocator, pid: i32) !void {
-    const w = std.io.getStdOut().writer();
-    try w.print("New nice value (-20 to 19): ", .{});
-
+    writeOut("New nice value (-20 to 19): ");
     var buf: [16]u8 = undefined;
-    const r = std.io.getStdIn().reader();
-    const len_opt = try r.readUntilDelimiterOrEof(&buf, '\n');
-    if (len_opt == null or len_opt.? == 0) return;
+    const n = posix.read(posix.STDIN_FILENO, &buf) catch return;
+    if (n == 0) return;
 
-    const trimmed = std.mem.trim(u8, buf[0..len_opt.?], " \t\r\n");
-    const nice_val = std.fmt.parseInt(i32, trimmed, 10) catch {
-        try w.print("Invalid nice value.\n", .{});
-        return;
-    };
+    const trimmed = std.mem.trim(u8, buf[0..n], " \n\r\t");
+    const val = std.fmt.parseInt(i32, trimmed, 10) catch return;
+
+    var pid_str: [16]u8 = undefined;
+    var val_str: [16]u8 = undefined;
+    const val_s = std.fmt.bufPrint(&val_str, "{d}", .{val}) catch "";
+    const pid_s = std.fmt.bufPrint(&pid_str, "{d}", .{pid}) catch "";
 
     const uid = posix.getuid();
+
+    // If root: run renice directly
     if (uid == 0) {
-        _ = posix.setpriority(posix.PRIO_PROCESS, pid, nice_val);
+        const args = &[_][]const u8{ "renice", val_s, "-p", pid_s };
+        var child = std.process.Child.init(args, allocator);
+        _ = try child.spawnAndWait();
         return;
     }
 
-    var argv = [_][]const u8{
-        "execas",
-        "-usr=root",
-        "renice",
-        undefined,
-        "-p",
-        undefined,
-    };
-
-    var nice_buf: [8]u8 = undefined;
-    const nice_str = try std.fmt.bufPrint(&nice_buf, "{d}", .{nice_val});
-    argv[3] = nice_str;
-
-    var pid_buf: [8]u8 = undefined;
-    const pid_str = try std.fmt.bufPrint(&pid_buf, "{d}", .{pid});
-    argv[5] = pid_str;
-
-    var child = std.process.Child.init(&argv, allocator);
+    // Non-root: go through execas
+    const args = &[_][]const u8{ "execas", "-usr=root", "renice", val_s, "-p", pid_s };
+    var child = std.process.Child.init(args, allocator);
     _ = try child.spawnAndWait();
 }
