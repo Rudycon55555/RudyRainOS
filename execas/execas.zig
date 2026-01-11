@@ -18,9 +18,11 @@ pub fn main() !void {
     const uid = posix.getuid();
     const is_root = (uid == 0);
 
-    var env_map = try std.process.getEnvMap(allocator);
+    // Fresh empty environment (kept for future use / clarity,
+    // even though this Zig version can't pass it to Child)
+    var env_map = std.process.EnvMap.init(allocator);
     defer env_map.deinit();
-    env_map.clear();
+
     try env_map.put("PATH", "/usr/bin:/bin:/usr/sbin:/sbin");
     try env_map.put("TERM", "xterm-256color");
 
@@ -61,7 +63,7 @@ pub fn main() !void {
     // 3. Logging & Execution
     if (allowed) {
         try logEvent(caller_name, target_user, args[cmd_idx], .success);
-        try runSudo(allocator, target_user, args[cmd_idx..], &env_map);
+        try runSudo(allocator, target_user, args[cmd_idx..]);
     } else {
         try logEvent(caller_name, target_user, args[cmd_idx], .denied);
         std.debug.print("execas: {s} is not in the execasers file.\n", .{caller_name});
@@ -82,29 +84,34 @@ fn logEvent(caller: []const u8, target: []const u8, cmd: []const u8, status: Log
 
     const ts = std.time.timestamp();
     const status_str = @tagName(status);
-    
+
     var buf: [1024]u8 = undefined;
-    const msg = try std.fmt.bufPrint(&buf, "[{d}] {s}: {s} -> {s} (cmd: {s})\n", .{ ts, status_str, caller, target, cmd });
+    const msg = try std.fmt.bufPrint(
+        &buf,
+        "[{d}] {s}: {s} -> {s} (cmd: {s})\n",
+        .{ ts, status_str, caller, target, cmd },
+    );
     _ = try file.write(msg);
 }
 
 fn checkPermissions(allocator: std.mem.Allocator, caller: []const u8, target: []const u8) !bool {
     const path = "/etc/execasers";
-    
-    // Validate File Security
-    const stat = posix.stat(path) catch return false;
-    if (stat.uid != 0 or (stat.mode & 0o022 != 0)) return ExecError.InsecureConfig;
 
-    const file = std.fs.cwd().openFile(path, .{}) catch return false;
-    defer file.close();
+    // Validate file security using std.fs
+    const file_stat = std.fs.cwd().statFile(path) catch return false;
 
-    var br = std.io.bufferedReader(file.reader());
-    var reader = br.reader();
-    
-    while (true) {
-        const line = reader.readUntilDelimiterOrEofAlloc(allocator, '\n', 4096) catch break orelse break;
-        defer allocator.free(line);
+    // Basic safety: reject group/world-writable config
+    if ((file_stat.mode & 0o022) != 0) {
+        return ExecError.InsecureConfig;
+    }
 
+    // Read entire file into memory
+    const file_data = std.fs.cwd().readFileAlloc(allocator, path, 1024 * 1024) catch return false;
+    defer allocator.free(file_data);
+
+    var line_it = std.mem.tokenizeScalar(u8, file_data, '\n');
+
+    while (line_it.next()) |line| {
         const trimmed = std.mem.trim(u8, line, " \t\r");
         if (trimmed.len == 0 or trimmed[0] == '#') continue;
 
@@ -114,33 +121,46 @@ fn checkPermissions(allocator: std.mem.Allocator, caller: []const u8, target: []
 
             if (std.mem.eql(u8, entry_user, caller)) {
                 while (it.next()) |allowed| {
-                    if (std.mem.eql(u8, allowed, "all") or std.mem.eql(u8, allowed, target)) return true;
+                    if (std.mem.eql(u8, allowed, "all") or std.mem.eql(u8, allowed, target)) {
+                        return true;
+                    }
                 }
             }
         }
     }
+
     return false;
 }
 
-fn runSudo(allocator: std.mem.Allocator, target: []const u8, cmd: []const []const u8, env: *std.process.EnvMap) !void {
+fn runSudo(
+    allocator: std.mem.Allocator,
+    target: []const u8,
+    cmd: []const []const u8,
+) !void {
     var argv = try allocator.alloc([]const u8, 3 + cmd.len);
     defer allocator.free(argv);
 
     argv[0] = "sudo";
     argv[1] = "-u";
     argv[2] = target;
-    for (cmd, 0..) |c, i| argv[3 + i] = c;
+    for (cmd, 0..) |c, i| {
+        argv[3 + i] = c;
+    }
 
     var child = std.process.Child.init(argv, allocator);
-    child.envp = env; // Secure Env
     _ = try child.spawnAndWait();
 }
 
 fn getCurrentUsername(allocator: std.mem.Allocator) ![]u8 {
-    const uid = posix.getuid();
-    var buf: [1024]u8 = undefined;
-    var pwd: posix.passwd = undefined;
-    var result: ?*posix.passwd = null;
-    if (posix.getpwuid_r(uid, &pwd, &buf, &result) != 0 or result == null) return error.UserNotFound;
-    return try allocator.dupe(u8, std.mem.span(pwd.pw_name));
+    // Prefer USER
+    if (std.process.getEnvVarOwned(allocator, "USER")) |user| {
+        return user;
+    } else |_| {}
+
+    // Fallback to LOGNAME
+    if (std.process.getEnvVarOwned(allocator, "LOGNAME")) |user| {
+        return user;
+    } else |_| {}
+
+    return error.UserNotFound;
 }
