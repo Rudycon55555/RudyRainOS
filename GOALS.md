@@ -5,14 +5,14 @@ It is a build-apon of Debian, but seems like a whoe system.
 # Works On
 I want RudyRainOS to be _truely_ corss-platform--featuring [pretty much the same inside] versions for:
 
-  - x86_64-linux-gnu
+  - x86_64
 
-  - aarch64-linux-gnu
+  - aarch64
 
-  - arm-linux-gnueabihf
+  - arm
 
-  - powerpc64le-linux-gnu
+  - powerpc64le
 
-  - riscv64-linux-gnu
+  - riscv64
 
-  - s390x-linux-gnu
+  - s390x
