@@ -1,3 +1,12 @@
+Source: rudyraindesktop
+Section: misc
+Priority: Optional
+Maintainer: Rudra <rudrafordev@protonmail.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+
+Package: rudyraindesktop
+Architecture: all
 Depends: gnome-tweaks,
          gnome-shell-extensions,
          extension-manager,
@@ -98,3 +107,4 @@ Depends: gnome-tweaks,
          firmware-atheros,
          firmware-brcm80211,
          firmware-intel-sound
+Description: RudyRainOS desktop v1.0.0. Codenamed "Sparks of Rain...Bow Rain"
