@@ -22,7 +22,6 @@ for ARCH in "${ARCHES[@]}"; do
   WORKDIR="${ROOT}/build-${ARCH}"
   rm -rf "${WORKDIR}"
   mkdir -p "${WORKDIR}"
-
   cd "${WORKDIR}"
 
   lb clean --purge || true
@@ -42,13 +41,20 @@ for ARCH in "${ARCHES[@]}"; do
   echo "rudyraindesktop" > config/package-lists/rudyraindesktop.list.chroot
 
   mkdir -p config/archives/local-repo
-  cp -r "${RUDYRAIN_LOCAL_REPO}"/* config/archives/local-repo/
+
+  cp "${RUDYRAIN_LOCAL_REPO}/Packages" config/archives/local-repo/ || true
+  cp "${RUDYRAIN_LOCAL_REPO}/Packages.gz" config/archives/local-repo/ || true
+  cp "${RUDYRAIN_LOCAL_REPO}"/*.deb config/archives/local-repo/ || true
 
   echo "deb [trusted=yes] file:/config/archives/local-repo ./" \
     > config/archives/local.list.chroot
 
   echo "[INFO] Running lb build for ${ARCH}"
-  lb build
+  if ! lb build; then
+    echo "[ERROR] lb build failed for ${ARCH}"
+    cd "${ROOT}"
+    continue
+  fi
 
   ISO="$(ls -1 *.iso | head -n1 || true)"
 
