@@ -32,29 +32,91 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    # ---------------------------------------------------------
+    # DEBUG 1: Show repo structure after checkout
+    # ---------------------------------------------------------
+    - name: Debug: Repository structure
+      run: |
+        echo "=== REPO ROOT ==="
+        ls -R .
+
+    # ---------------------------------------------------------
+    # Build meta-package
+    # ---------------------------------------------------------
     - name: Build meta-package
       working-directory: Meta-Packages/rudyraindesktop
       run: |
+        echo "=== BUILDING META PACKAGE ==="
         dpkg-buildpackage -us -uc
 
+    # ---------------------------------------------------------
+    # DEBUG 2: Show .deb files after build
+    # ---------------------------------------------------------
+    - name: Debug: Show built .deb files
+      working-directory: Meta-Packages
+      run: |
+        echo "=== .deb FILES FOUND ==="
+        ls -l ../*.deb || echo "No .deb files found"
+
+    # ---------------------------------------------------------
+    # Create local APT repo
+    # ---------------------------------------------------------
     - name: Create local APT repo
       working-directory: Meta-Packages
       run: |
         mkdir -p repo
         cp ../*.deb repo/ || true
         cd repo
+        echo "=== BUILDING PACKAGES INDEX ==="
         dpkg-scanpackages . /dev/null > Packages
         gzip -9c Packages > Packages.gz
 
+    # ---------------------------------------------------------
+    # DEBUG 3: Show repo contents
+    # ---------------------------------------------------------
+    - name: Debug: Local repo contents
+      run: |
+        echo "=== LOCAL REPO PATH ==="
+        echo "${GITHUB_WORKSPACE}/Meta-Packages/repo"
+        echo "=== FILES IN LOCAL REPO ==="
+        ls -l "${GITHUB_WORKSPACE}/Meta-Packages/repo" || echo "Repo missing"
+
+    # ---------------------------------------------------------
+    # Export repo path
+    # ---------------------------------------------------------
     - name: Export repo path
       run: echo "RUDYRAIN_LOCAL_REPO=${GITHUB_WORKSPACE}/Meta-Packages/repo" >> $GITHUB_ENV
 
+    # ---------------------------------------------------------
+    # DEBUG 4: Confirm environment variable
+    # ---------------------------------------------------------
+    - name: Debug: Show RUDYRAIN_LOCAL_REPO
+      run: |
+        echo "=== RUDYRAIN_LOCAL_REPO ==="
+        echo "$RUDYRAIN_LOCAL_REPO"
+        ls -l "$RUDYRAIN_LOCAL_REPO" || echo "Repo path invalid"
+
+    # ---------------------------------------------------------
+    # Build all ISOs
+    # ---------------------------------------------------------
     - name: Build all ISOs
       working-directory: scripts
       run: |
         chmod +x build-one.sh build-all.sh
+        echo "=== STARTING ISO BUILDS ==="
         ./build-all.sh
 
+    # ---------------------------------------------------------
+    # DEBUG 5: Show artifacts directory
+    # ---------------------------------------------------------
+    - name: Debug: Artifacts directory
+      run: |
+        echo "=== ARTIFACTS DIRECTORY ==="
+        ls -R scripts/artifacts || echo "No artifacts directory"
+
+    # ---------------------------------------------------------
+    # Upload ISO artifacts
+    # ---------------------------------------------------------
     - name: Upload ISO artifacts
       uses: actions/upload-artifact@v4
       with:
