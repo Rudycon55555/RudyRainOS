@@ -24,28 +24,25 @@ jobs:
           apt install -y \
             live-build \
             debootstrap \
-            sudo \
             xz-utils \
             git \
             locales \
             parallel
 
-          # Configure locale to avoid Perl warnings
           sed -i 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
           locale-gen en_US.UTF-8
           update-locale LANG=en_US.UTF-8
 
       - name: Make scripts executable
-        run: |
-          chmod +x scripts/*.sh
+        run: chmod +x scripts/*.sh
 
-      - name: Run build-all.sh
+      - name: Build all ISOs
         run: |
           cd scripts
-          bash ./build-all.sh
+          ./build-all.sh
 
-      - name: Upload ISO artifacts
+      - name: Upload ISOs
         uses: actions/upload-artifact@v4
         with:
           name: RudyRainOS-ISOs
-          path: scripts/*.iso
+          path: scripts/artifacts/*.iso
