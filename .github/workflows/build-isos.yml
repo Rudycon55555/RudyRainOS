@@ -26,7 +26,8 @@ jobs:
           qemu-user-static \
           binfmt-support \
           parallel \
-          ca-certificates
+          ca-certificates \
+          debhelper-compat
 
     - name: Checkout repository
       uses: actions/checkout@v4
