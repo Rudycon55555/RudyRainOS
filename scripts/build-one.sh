@@ -1,38 +1,65 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ARCH="$1"
+ARCHES=(
+  amd64
+  arm64
+  armhf
+  ppc64el
+  riscv64
+  s390x
+)
+
 DIST="bookworm"
 
-ROOT="$(pwd)"
-WORKDIR="${ROOT}/build-${ARCH}"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ARTIFACTS="${ROOT}/artifacts"
+mkdir -p "${ARTIFACTS}"
 
-rm -rf "${WORKDIR}"
-mkdir -p "${WORKDIR}" "${ARTIFACTS}"
+for ARCH in "${ARCHES[@]}"; do
+  echo "[INFO] === Building ${ARCH} ==="
 
-cd "${WORKDIR}"
+  WORKDIR="${ROOT}/build-${ARCH}"
+  rm -rf "${WORKDIR}"
+  mkdir -p "${WORKDIR}"
 
-lb clean --purge || true
+  cd "${WORKDIR}"
 
-lb config \
-  --architectures "${ARCH}" \
-  --distribution "${DIST}" \
-  --binary-images iso-hybrid \
-  --debian-installer none \
-  --archive-areas "main contrib non-free non-free-firmware" \
-  --mirror-bootstrap http://deb.debian.org/debian/ \
-  --mirror-chroot http://deb.debian.org/debian/ \
-  --bootappend-live "boot=live components quiet splash" \
-  --apt-recommends true
+  lb clean --purge || true
 
-mkdir -p config/package-lists
-echo "rudyraindesktop" > config/package-lists/rudyraindesktop.list.chroot
+  lb config \
+    --architectures "${ARCH}" \
+    --distribution "${DIST}" \
+    --binary-images iso-hybrid \
+    --debian-installer none \
+    --archive-areas "main contrib non-free non-free-firmware" \
+    --mirror-bootstrap http://deb.debian.org/debian/ \
+    --mirror-chroot http://deb.debian.org/debian/ \
+    --bootappend-live "boot=live components quiet splash" \
+    --apt-recommends true
 
-mkdir -p config/archives
-echo "deb [trusted=yes] file:${RUDYRAIN_LOCAL_REPO} ./" > config/archives/local.list.chroot
+  mkdir -p config/package-lists
+  echo "rudyraindesktop" > config/package-lists/rudyraindesktop.list.chroot
 
-lb build
+  mkdir -p config/archives/local-repo
+  cp -r "${RUDYRAIN_LOCAL_REPO}"/* config/archives/local-repo/
 
-ISO="$(ls -1 *.iso | head -n1)"
-mv "${ISO}" "${ARTIFACTS}/RudyRainOS-${DIST}-${ARCH}.iso"
+  echo "deb [trusted=yes] file:/config/archives/local-repo ./" \
+    > config/archives/local.list.chroot
+
+  echo "[INFO] Running lb build for ${ARCH}"
+  lb build
+
+  ISO="$(ls -1 *.iso | head -n1 || true)"
+
+  if [[ -n "${ISO}" ]]; then
+    mv "${ISO}" "${ARTIFACTS}/RudyRainOS-${DIST}-${ARCH}.iso"
+    echo "[INFO] ISO created for ${ARCH}"
+  else
+    echo "[WARN] No ISO produced for ${ARCH}"
+  fi
+
+  cd "${ROOT}"
+done
+
+echo "[INFO] All builds complete. ISOs in artifacts/"
