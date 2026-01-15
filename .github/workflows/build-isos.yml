@@ -24,7 +24,7 @@ jobs:
           echo "=== REPO TREE ==="
           ls -R .
 
-      - name: Install dependencies
+      - name: Install build and live-build dependencies
         working-directory: ${{ github.workspace }}
         run: |
           apt update
@@ -34,11 +34,34 @@ jobs:
             xz-utils \
             git \
             locales \
-            parallel
+            parallel \
+            build-essential \
+            devscripts \
+            dpkg-dev
 
           sed -i 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
           locale-gen en_US.UTF-8
           update-locale LANG=en_US.UTF-8
+
+      - name: Build meta-package (rudyraindesktop)
+        working-directory: ${{ github.workspace }}/Meta-Packages
+        run: |
+          dpkg-buildpackage -us -uc
+
+      - name: Create local APT repo for meta-package
+        working-directory: ${{ github.workspace }}/Meta-Packages
+        run: |
+          mkdir -p repo
+          # Move all built .deb files into the repo
+          mv ../*.deb repo/ || true
+          cd repo
+          dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz
+
+      - name: Show local repo contents
+        working-directory: ${{ github.workspace }}/Meta-Packages/repo
+        run: |
+          echo "=== LOCAL REPO CONTENTS ==="
+          ls -R .
 
       - name: Make scripts executable
         working-directory: ${{ github.workspace }}/scripts
@@ -46,7 +69,11 @@ jobs:
 
       - name: Build all ISOs
         working-directory: ${{ github.workspace }}/scripts
-        run: ./build-all.sh
+        env:
+          RUDYRAIN_LOCAL_REPO: ${{ github.workspace }}/Meta-Packages/repo
+        run: |
+          echo "Using local repo at: ${RUDYRAIN_LOCAL_REPO}"
+          ./build-all.sh
 
       - name: Upload ISO artifacts
         uses: actions/upload-artifact@v4
