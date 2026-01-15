@@ -1,82 +1,61 @@
 name: Build RudyRainOS ISOs
 
 on:
-  workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     container:
-      image: debian:12
+      image: debian:bookworm
       options: --privileged
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: Install base dependencies
+      run: |
+        apt-get update
+        apt-get install -y \
+          git \
+          live-build \
+          dpkg-dev \
+          debootstrap \
+          xz-utils \
+          qemu-user-static \
+          binfmt-support \
+          parallel \
+          ca-certificates
 
-      - name: Debug repo tree
-        working-directory: ${{ github.workspace }}
-        run: |
-          echo "=== REPO TREE ==="
-          ls -R .
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Install build and live-build dependencies
-        working-directory: ${{ github.workspace }}
-        run: |
-          apt update
-          apt install -y \
-            live-build \
-            debootstrap \
-            xz-utils \
-            git \
-            locales \
-            parallel \
-            build-essential \
-            devscripts \
-            dpkg-dev
+    - name: Build meta-package
+      working-directory: Meta-Packages/rudyraindesktop
+      run: |
+        dpkg-buildpackage -us -uc
 
-          sed -i 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
-          locale-gen en_US.UTF-8
-          update-locale LANG=en_US.UTF-8
+    - name: Create local APT repo
+      working-directory: Meta-Packages
+      run: |
+        mkdir -p repo
+        cp ../*.deb repo/ || true
+        cd repo
+        dpkg-scanpackages . /dev/null > Packages
+        gzip -9c Packages > Packages.gz
 
-      - name: Build meta-package (rudyraindesktop)
-        working-directory: ${{ github.workspace }}/Meta-Packages
-        run: |
-          dpkg-buildpackage -us -uc
+    - name: Export repo path
+      run: echo "RUDYRAIN_LOCAL_REPO=${GITHUB_WORKSPACE}/Meta-Packages/repo" >> $GITHUB_ENV
 
-      - name: Create local APT repo for meta-package
-        working-directory: ${{ github.workspace }}/Meta-Packages
-        run: |
-          mkdir -p repo
-          # Move all built .deb files into the repo
-          mv ../*.deb repo/ || true
-          cd repo
-          dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz
+    - name: Build all ISOs
+      working-directory: scripts
+      run: |
+        chmod +x build-one.sh build-all.sh
+        ./build-all.sh
 
-      - name: Show local repo contents
-        working-directory: ${{ github.workspace }}/Meta-Packages/repo
-        run: |
-          echo "=== LOCAL REPO CONTENTS ==="
-          ls -R .
-
-      - name: Make scripts executable
-        working-directory: ${{ github.workspace }}/scripts
-        run: chmod +x *.sh
-
-      - name: Build all ISOs
-        working-directory: ${{ github.workspace }}/scripts
-        env:
-          RUDYRAIN_LOCAL_REPO: ${{ github.workspace }}/Meta-Packages/repo
-        run: |
-          echo "Using local repo at: ${RUDYRAIN_LOCAL_REPO}"
-          ./build-all.sh
-
-      - name: Upload ISO artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: RudyRainOS-ISOs
-          path: scripts/artifacts/*.iso
+    - name: Upload ISO artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: RudyRainOS-ISOs
+        path: scripts/artifacts/*.iso
