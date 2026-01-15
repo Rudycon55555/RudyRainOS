@@ -30,7 +30,7 @@ mkdir -p config/package-lists
 echo "rudyraindesktop" > config/package-lists/rudyraindesktop.list.chroot
 
 mkdir -p config/archives
-echo "deb [trusted=yes] file:${ROOT}/Meta-Packages ./" > config/archives/local.list.chroot
+echo "deb [trusted=yes] file:${RUDYRAIN_LOCAL_REPO} ./" > config/archives/local.list.chroot
 
 lb build
 
