@@ -50,14 +50,14 @@ jobs:
         ls -l ../*.deb || echo "No .deb files found"
 
     - name: "Create local APT repo"
-  working-directory: Meta-Packages
-  run: |
-    mkdir -p repo
-    cp rudyraindesktop/*.deb repo/ || true
-    cd repo
-    echo "=== BUILDING PACKAGES INDEX ==="
-    dpkg-scanpackages . /dev/null > Packages
-    gzip -9c Packages > Packages.gz
+      working-directory: Meta-Packages
+      run: |
+        mkdir -p repo
+        cp rudyraindesktop/*.deb repo/ || true
+        cd repo
+        echo "=== BUILDING PACKAGES INDEX ==="
+        dpkg-scanpackages . /dev/null > Packages
+        gzip -9c Packages > Packages.gz
 
     - name: "Debug: Local repo contents"
       run: |
