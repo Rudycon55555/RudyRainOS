@@ -57,13 +57,13 @@ jobs:
       working-directory: Meta-Packages
       run: |
         echo "=== .deb FILES FOUND ==="
-        ls -l ../*.deb || echo "No .deb files found"
+        ls -l rudyraindesktop/../*.deb || echo "No .deb files found"
 
     - name: "Create local APT repo"
       working-directory: Meta-Packages
       run: |
         mkdir -p repo
-        cp rudyraindesktop/*.deb repo/ || true
+        cp rudyraindesktop/../*.deb repo/ || true
         cd repo
         echo "=== BUILDING PACKAGES INDEX ==="
         dpkg-scanpackages . /dev/null > Packages
