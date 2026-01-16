@@ -12,6 +12,6 @@ I'd _really_ like if people contributed to this open-source project--RudyRainOS!
     4. Revise
     5. Repeat until ready
     6. Create ISOs for each CPU arch RudyRainOS is for
-    7. Email me <rudrafordev@protonmail.com> about the changes in detail _and_ the link to the repository
+    7. Email me \<rudrafordev@protonmail.com> about the changes in detail _and_ the link to the repository
     8. I'll review
     9. If I think I like it, I'll release the ISOs
