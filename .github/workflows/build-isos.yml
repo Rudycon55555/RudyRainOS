@@ -32,16 +32,26 @@ jobs:
     - name: "Checkout repository"
       uses: actions/checkout@v4
 
+    - name: "Fix permissions on debian/rules"
+      run: chmod +x Meta-Packages/rudyraindesktop/debian/rules
+
     - name: "Debug: Repository structure"
       run: |
         echo "=== REPO ROOT ==="
         ls -R .
 
-    - name: "Build meta-package"
+    - name: "Build meta-package (with local debug)"
       working-directory: Meta-Packages/rudyraindesktop
       run: |
-        echo "=== BUILDING META PACKAGE ==="
+        set -x
+        echo "=== PWD ==="
+        pwd
+        echo "=== CONTENTS OF CURRENT DIR ==="
+        ls -la
+        echo "=== RUNNING DPKG-BUILDPACKAGE ==="
         dpkg-buildpackage -us -uc
+        echo "=== AFTER BUILD: CONTENTS OF PARENT DIR ==="
+        ls -la ..
 
     - name: "Debug: Show built .deb files"
       working-directory: Meta-Packages
