@@ -75,6 +75,20 @@ jobs:
         echo "$RUDYRAIN_LOCAL_REPO"
         ls -l "$RUDYRAIN_LOCAL_REPO" || echo "Repo path invalid"
 
+    - name: "Debug: Show resolved repo path inside container"
+      run: |
+        echo "=== GITHUB_WORKSPACE ==="
+        echo "$GITHUB_WORKSPACE"
+        echo "=== RUDYRAIN_LOCAL_REPO ==="
+        echo "$RUDYRAIN_LOCAL_REPO"
+        echo "=== Does this directory exist? ==="
+        if [ -d "$RUDYRAIN_LOCAL_REPO" ]; then
+          echo "YES"
+          ls -l "$RUDYRAIN_LOCAL_REPO"
+        else
+          echo "NO — PATH INVALID INSIDE CONTAINER"
+        fi
+
     - name: "Build all ISOs"
       working-directory: scripts
       run: |
