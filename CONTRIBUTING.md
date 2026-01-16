@@ -15,3 +15,6 @@ I'd _really_ like if people contributed to this open-source project--RudyRainOS!
     7. Email me \<rudrafordev@protonmail.com> about the changes in detail _and_ the link to the repository
     8. I'll review
     9. If I think I like it, I'll release the ISOs
+  - Create the ISOs--it's too much for me
+    * Each ISO needs to be on top of on the last RudyRainOS version
+    * The first one on top of Debian:Bookworm/Debian:12
